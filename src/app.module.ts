@@ -7,6 +7,8 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { BusinessModule } from './business/business.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { ToolsModule } from './tools/tools.module';
+import { ProductsModule } from './products/products.module';
 import config from './config';
 
 @Module({
@@ -21,6 +23,8 @@ import config from './config';
     AuthModule,
     BusinessModule,
     TransactionsModule,
+    ToolsModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -19,7 +19,9 @@ import { UpdatePuntoVentaDto } from './dto/UpdatePuntoVentaDto';
 @UseGuards(JwtauthGuard)
 @Controller('business')
 export class BusinessController {
-  constructor(private businessService: BusinessService) { }
+  constructor(private businessService: BusinessService) {}
+
+  //BUSINESS
 
   @Post()
   createBusiness(@Request() req, @Body() newBusiness: CreateBusinessDto) {
@@ -35,6 +37,15 @@ export class BusinessController {
     return this.businessService.findByUser(info.sub);
   }
 
+  @Delete(':id')
+  deleteBusiness(@Param('id') id: string, @Request() req) {
+    const info = req.user as JwtPayload;
+    console.log(info);
+    return this.businessService.deleteBusiness(+id, info.sub);
+  }
+
+  //POINT OF SALE
+
   @Post('point-sale')
   createPuntoVenta(@Request() req, @Body() newPuntoVenta: CreatePuntoVentaDto) {
     const info = req.user as JwtPayload;
@@ -42,20 +53,6 @@ export class BusinessController {
     return this.businessService.createPuntoVenta(info.sub, newPuntoVenta);
   }
 
-  // Nuevo endpoint para actualizar punto de venta
-  @Put('/:id/point-sale/:idPointSale')
-  updatePuntoVenta(
-    @Param('id') id: string,
-    @Param('idPointSale') idPointSale: string,
-    @Body() updatePuntoVentaDto: UpdatePuntoVentaDto,
-    @Request() req
-  ) {
-    const info = req.user as JwtPayload;
-    console.log(info);
-    return this.businessService.updatePuntoVenta(info.sub, +idPointSale, updatePuntoVentaDto);
-  }
-
-  // Endpoint para obtener puntos de venta de un negocio
   @Get('/:id/point-sale')
   findPuntosVenta(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
@@ -67,11 +64,27 @@ export class BusinessController {
   findPuntoVentaInfo(
     @Param('id') id: string,
     @Param('idPointSale') idPointSale: string,
-    @Request() req
+    @Request() req,
   ) {
     const info = req.user as JwtPayload;
     console.log(info);
     return this.businessService.findPuntoVentaById(+id, +idPointSale, info.sub);
+  }
+
+  @Put('/:id/point-sale/:idPointSale')
+  updatePuntoVenta(
+    @Param('id') id: string,
+    @Param('idPointSale') idPointSale: string,
+    @Body() updatePuntoVentaDto: UpdatePuntoVentaDto,
+    @Request() req,
+  ) {
+    const info = req.user as JwtPayload;
+    console.log(info);
+    return this.businessService.updatePuntoVenta(
+      info.sub,
+      +idPointSale,
+      updatePuntoVentaDto,
+    );
   }
 
   @Delete('point-sale/:id')
@@ -79,13 +92,5 @@ export class BusinessController {
     const info = req.user as JwtPayload;
     console.log(info);
     return this.businessService.deletePuntoVenta(+id, info.sub);
-  }
-
-  // Endpoint para eliminar un negocio
-  @Delete(':id')
-  deleteBusiness(@Param('id') id: string, @Request() req) {
-    const info = req.user as JwtPayload;
-    console.log(info);
-    return this.businessService.deleteBusiness(+id, info.sub);
   }
 }

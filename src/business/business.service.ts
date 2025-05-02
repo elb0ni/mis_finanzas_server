@@ -11,7 +11,9 @@ import { UpdatePuntoVentaDto } from './dto/UpdatePuntoVentaDto';
 
 @Injectable()
 export class BusinessService {
-  constructor(@Inject('MYSQL') private pool: Pool) { }
+  constructor(@Inject('MYSQL') private pool: Pool) {}
+
+  //BUSINESS
 
   async create(userId: string, newBusiness: CreateBusinessDto) {
     let connection: PoolConnection | null = null;
@@ -22,13 +24,13 @@ export class BusinessService {
       // Verificar que el usuario existe
       const [userRows]: [any[], any] = await connection.query(
         'SELECT id FROM users WHERE id = ?',
-        [userId]
+        [userId],
       );
 
       if (!userRows || userRows.length === 0) {
         throw new HttpException(
           'El usuario especificado no existe',
-          HttpStatus.BAD_REQUEST
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -41,21 +43,21 @@ export class BusinessService {
           newBusiness.direccion || null,
           newBusiness.telefono || null,
           newBusiness.email || null,
-          userId
-        ]
+          userId,
+        ],
       );
 
       // Obtener el negocio recién creado para devolverlo
       const [createdBusiness] = await connection.query(
         'SELECT * FROM negocios WHERE id = ?',
-        [result.insertId]
+        [result.insertId],
       );
 
       return createdBusiness[0];
     } catch (error) {
       throw new HttpException(
         error.message || 'Error al crear el negocio',
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
       if (connection) connection.release();
@@ -96,6 +98,64 @@ export class BusinessService {
       if (connection) connection.release();
     }
   }
+
+  async deleteBusiness(businessId: number, userId: string) {
+    let connection: PoolConnection | null = null;
+    try {
+      connection = await this.pool.getConnection();
+
+      // Verificar que el negocio existe y pertenece al usuario
+      const [businessRows]: [any[], any] = await connection.query(
+        'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
+        [businessId, userId],
+      );
+
+      if (!businessRows || businessRows.length === 0) {
+        throw new HttpException(
+          'El negocio no existe o no tienes permisos para eliminarlo',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Comenzar una transacción
+      await connection.beginTransaction();
+
+      try {
+        // Primero eliminar los puntos de venta asociados
+        await connection.query(
+          'DELETE FROM puntos_venta WHERE negocio_id = ?',
+          [businessId],
+        );
+
+        // Luego eliminar el negocio
+        await connection.query('DELETE FROM negocios WHERE id = ?', [
+          businessId,
+        ]);
+
+        // Confirmar la transacción
+        await connection.commit();
+      } catch (error) {
+        // Si hay error, revertir los cambios
+        await connection.rollback();
+        throw error;
+      }
+
+      return {
+        success: true,
+        message:
+          'Negocio eliminado correctamente junto con todos sus puntos de venta',
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al eliminar el negocio',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+
+  //POINT OF SALE
 
   async createPuntoVenta(userId: string, newPuntoVenta: CreatePuntoVentaDto) {
     console.log(newPuntoVenta);
@@ -152,8 +212,6 @@ export class BusinessService {
         );
       }
 
-
-
       // Usar RETURNING * para obtener todos los campos de la fila insertada
       const [result] = await connection.query(
         'INSERT INTO puntos_venta (negocio_id, nombre, ubicacion, latitud, longitud, responsable, telefono, activo, nota, departamento, municipio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
@@ -172,7 +230,6 @@ export class BusinessService {
         ],
       );
 
-
       console.log('DESPUES');
       // El resultado ahora contiene directamente la fila insertada
       return result[0];
@@ -186,7 +243,11 @@ export class BusinessService {
     }
   }
 
-  async updatePuntoVenta(userId: string, puntoVentaId: number, updatePuntoVentaDto: UpdatePuntoVentaDto) {
+  async updatePuntoVenta(
+    userId: string,
+    puntoVentaId: number,
+    updatePuntoVentaDto: UpdatePuntoVentaDto,
+  ) {
     console.log(updatePuntoVentaDto);
 
     let connection: PoolConnection | null = null;
@@ -247,7 +308,8 @@ export class BusinessService {
 
       // Verificar el municipio si está siendo actualizado
       if (updatePuntoVentaDto.municipio) {
-        const departamentoId = updatePuntoVentaDto.departamento || puntoVenta.departamento;
+        const departamentoId =
+          updatePuntoVentaDto.departamento || puntoVenta.departamento;
         const [muniRows]: [any[], any] = await connection.query(
           'SELECT id_municipio FROM municipios WHERE id_municipio = ? AND departamento_id = ?',
           [updatePuntoVentaDto.municipio, departamentoId],
@@ -276,15 +338,19 @@ export class BusinessService {
         'activo',
         'nota',
         'departamento',
-        'municipio'
+        'municipio',
       ];
 
       // Construir la lista de campos a actualizar
-      fieldsToUpdate.forEach(field => {
+      fieldsToUpdate.forEach((field) => {
         if (updatePuntoVentaDto[field] !== undefined) {
           updateFields.push(`${field} = ?`);
           // Para los campos que pueden ser null
-          if (field === 'responsable' || field === 'telefono' || field === 'nota') {
+          if (
+            field === 'responsable' ||
+            field === 'telefono' ||
+            field === 'nota'
+          ) {
             updateValues.push(updatePuntoVentaDto[field] || null);
           } else {
             updateValues.push(updatePuntoVentaDto[field]);
@@ -304,13 +370,19 @@ export class BusinessService {
       updateValues.push(puntoVentaId);
 
       // Ejecutar la query de actualización
-      const [result] = await connection.query(
-        `UPDATE puntos_venta SET ${updateFields.join(', ')} WHERE id = ? RETURNING *`,
+      await connection.query(
+        `UPDATE puntos_venta SET ${updateFields.join(', ')} WHERE id = ?`,
         updateValues,
       );
 
-      // Retornar el punto de venta actualizado
-      return result[0];
+      // Fetch the updated record with a separate query
+      const [updatedRecord] = await connection.query(
+        'SELECT * FROM puntos_venta WHERE id = ?',
+        [puntoVentaId],
+      );
+
+      // Return the updated record
+      return updatedRecord[0];
     } catch (error) {
       throw new HttpException(
         error.message || 'Error al actualizar el punto de venta',
@@ -357,11 +429,15 @@ export class BusinessService {
     }
   }
 
-  async findPuntoVentaById(negocioId: number, puntoVentaId: number, userId: string) {
+  async findPuntoVentaById(
+    negocioId: number,
+    puntoVentaId: number,
+    userId: string,
+  ) {
     let connection: PoolConnection | null = null;
     try {
       connection = await this.pool.getConnection();
-      
+
       // Verificar que el negocio existe y pertenece al usuario
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
@@ -373,23 +449,23 @@ export class BusinessService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      
+
       // Obtener el punto de venta específico
-      const [puntosVenta]:any = await connection.query(
+      const [puntosVenta]: any = await connection.query(
         'SELECT pv.* FROM puntos_venta pv ' +
-        'LEFT JOIN departamentos d ON pv.departamento = d.id_departamento ' +
-        'LEFT JOIN municipios m ON pv.municipio = m.id_municipio ' +
-        'WHERE pv.negocio_id = ? AND pv.id = ?',
+          'LEFT JOIN departamentos d ON pv.departamento = d.id_departamento ' +
+          'LEFT JOIN municipios m ON pv.municipio = m.id_municipio ' +
+          'WHERE pv.negocio_id = ? AND pv.id = ?',
         [negocioId, puntoVentaId],
       );
-      
+
       if (!puntosVenta || puntosVenta.length === 0) {
         throw new HttpException(
           'El punto de venta no existe o no pertenece al negocio especificado',
           HttpStatus.NOT_FOUND,
         );
       }
-      
+
       return puntosVenta[0];
     } catch (error) {
       throw new HttpException(
@@ -409,29 +485,27 @@ export class BusinessService {
       // Verificar que el punto de venta existe y pertenece a un negocio del usuario
       const [puntoVentaRows]: [any[], any] = await connection.query(
         'SELECT pv.id FROM puntos_venta pv ' +
-        'JOIN negocios n ON pv.negocio_id = n.id ' +
-        'WHERE pv.id = ? AND n.propietario = ?',
-        [puntoVentaId, userId]
+          'JOIN negocios n ON pv.negocio_id = n.id ' +
+          'WHERE pv.id = ? AND n.propietario = ?',
+        [puntoVentaId, userId],
       );
 
       if (!puntoVentaRows || puntoVentaRows.length === 0) {
         throw new HttpException(
           'El punto de venta no existe o no tienes permisos para eliminarlo',
-          HttpStatus.NOT_FOUND
+          HttpStatus.NOT_FOUND,
         );
       }
 
       // Eliminar el punto de venta
-      await connection.query(
-        'DELETE FROM puntos_venta WHERE id = ?',
-        [puntoVentaId]
-      );
+      await connection.query('DELETE FROM puntos_venta WHERE id = ?', [
+        puntoVentaId,
+      ]);
 
       return {
         success: true,
-        message: 'Punto de venta eliminado correctamente'
+        message: 'Punto de venta eliminado correctamente',
       };
-
     } catch (error) {
       throw new HttpException(
         error.message || 'Error al eliminar el punto de venta',
@@ -441,63 +515,4 @@ export class BusinessService {
       if (connection) connection.release();
     }
   }
-
-  async deleteBusiness(businessId: number, userId: string) {
-    let connection: PoolConnection | null = null;
-    try {
-      connection = await this.pool.getConnection();
-
-      // Verificar que el negocio existe y pertenece al usuario
-      const [businessRows]: [any[], any] = await connection.query(
-        'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
-        [businessId, userId]
-      );
-
-      if (!businessRows || businessRows.length === 0) {
-        throw new HttpException(
-          'El negocio no existe o no tienes permisos para eliminarlo',
-          HttpStatus.NOT_FOUND
-        );
-      }
-
-      // Comenzar una transacción
-      await connection.beginTransaction();
-
-      try {
-        // Primero eliminar los puntos de venta asociados
-        await connection.query(
-          'DELETE FROM puntos_venta WHERE negocio_id = ?',
-          [businessId]
-        );
-
-        // Luego eliminar el negocio
-        await connection.query(
-          'DELETE FROM negocios WHERE id = ?',
-          [businessId]
-        );
-
-        // Confirmar la transacción
-        await connection.commit();
-
-      } catch (error) {
-        // Si hay error, revertir los cambios
-        await connection.rollback();
-        throw error;
-      }
-
-      return {
-        success: true,
-        message: 'Negocio eliminado correctamente junto con todos sus puntos de venta'
-      };
-
-    } catch (error) {
-      throw new HttpException(
-        error.message || 'Error al eliminar el negocio',
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    } finally {
-      if (connection) connection.release();
-    }
-  }
-
 }

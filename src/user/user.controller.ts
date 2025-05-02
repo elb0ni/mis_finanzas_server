@@ -26,26 +26,5 @@ export class UserController {
     }
   }
 
-  @Get('departments')
-  async getDepartments() {
-    try {
-      return this.userService.getDepartments();
-    } catch (error) {
-      throw new HttpException(
-        error.message || 'Error al registrar el usuario',
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-  @Get('municipalities/:id')
-  async Municipalities(@Param('id') departmentId: string) {
-    try {
-      return this.userService.getMunicipalities(+departmentId);
-    } catch (error) {
-      throw new HttpException(
-        error.message || 'Error al registrar el usuario',
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
+
 }
