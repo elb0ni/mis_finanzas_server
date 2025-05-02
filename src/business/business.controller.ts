@@ -5,25 +5,26 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import { JwtauthGuard } from 'src/auth/guards/JwtGuard.guard';
 import { JwtPayload } from 'src/auth/models/token.model';
-import { CreateBusinessDto } from './dto/CreateBusiness';
-import { CreatePointSaleDto } from './dto/CreatePointSale.dto';
+import CreateBusinessDto from './dto/CreateBusiness';
+import CreatePuntoVentaDto from './dto/CreatePointSale.dto';
+import { UpdatePuntoVentaDto } from './dto/UpdatePuntoVentaDto';
 
 @UseGuards(JwtauthGuard)
 @Controller('business')
 export class BusinessController {
-  constructor(private businessService: BusinessService) {}
+  constructor(private businessService: BusinessService) { }
 
   @Post()
   createBusiness(@Request() req, @Body() newBusiness: CreateBusinessDto) {
     const info = req.user as JwtPayload;
     console.log(info);
-
     return this.businessService.create(info.sub, newBusiness);
   }
 
@@ -31,16 +32,27 @@ export class BusinessController {
   findUserBusinesses(@Request() req) {
     const info = req.user as JwtPayload;
     console.log(info);
-
     return this.businessService.findByUser(info.sub);
   }
 
   @Post('point-sale')
-  createPuntoVenta(@Request() req, @Body() newPuntoVenta: CreatePointSaleDto) {
+  createPuntoVenta(@Request() req, @Body() newPuntoVenta: CreatePuntoVentaDto) {
     const info = req.user as JwtPayload;
     console.log(info);
-
     return this.businessService.createPuntoVenta(info.sub, newPuntoVenta);
+  }
+
+  // Nuevo endpoint para actualizar punto de venta
+  @Put('/:id/point-sale/:idPointSale')
+  updatePuntoVenta(
+    @Param('id') id: string,
+    @Param('idPointSale') idPointSale: string,
+    @Body() updatePuntoVentaDto: UpdatePuntoVentaDto,
+    @Request() req
+  ) {
+    const info = req.user as JwtPayload;
+    console.log(info);
+    return this.businessService.updatePuntoVenta(info.sub, +idPointSale, updatePuntoVentaDto);
   }
 
   // Endpoint para obtener puntos de venta de un negocio
@@ -48,15 +60,24 @@ export class BusinessController {
   findPuntosVenta(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
     console.log(info);
-
     return this.businessService.findPuntosVentaByNegocio(+id, info.sub);
+  }
+
+  @Get('/:id/point-sale/:idPointSale')
+  findPuntoVentaInfo(
+    @Param('id') id: string,
+    @Param('idPointSale') idPointSale: string,
+    @Request() req
+  ) {
+    const info = req.user as JwtPayload;
+    console.log(info);
+    return this.businessService.findPuntoVentaById(+id, +idPointSale, info.sub);
   }
 
   @Delete('point-sale/:id')
   deletePuntoVenta(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
     console.log(info);
-
     return this.businessService.deletePuntoVenta(+id, info.sub);
   }
 
@@ -65,8 +86,6 @@ export class BusinessController {
   deleteBusiness(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
     console.log(info);
-
     return this.businessService.deleteBusiness(+id, info.sub);
   }
- 
 }

@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, IsEmail, IsOptional, Length } from 'class-validator';
 
-export class CreateBusinessDto {
+export default class CreateBusinessDto {
   @IsNotEmpty({ message: 'El nombre del negocio es requerido' })
   @IsString({ message: 'El nombre debe ser texto' })
   @Length(3, 100, { message: 'El nombre debe tener entre 3 y 100 caracteres' })
