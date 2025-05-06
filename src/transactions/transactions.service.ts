@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Pool, PoolConnection } from 'mysql2/promise';
-import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto ';
+import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto';
+import { CreateTransactionDto } from './dto/CreateTransactionDto';
 
 @Injectable()
 export class TransactionsService {
@@ -238,6 +239,200 @@ export class TransactionsService {
     } catch (error) {
       throw new HttpException(
         error.message || 'Error al eliminar la categoría de egresos',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+
+  async createTransaction(
+    userId: string,
+    newTransaction: CreateTransactionDto,
+  ) {
+    let connection: PoolConnection | null = null;
+    try {
+      connection = await this.pool.getConnection();
+      await connection.beginTransaction();
+
+      const [puntoVentaRows]: [any[], any] = await connection.query(
+        'SELECT pv.* FROM puntos_venta pv ' +
+          'JOIN negocios n ON pv.negocio_id = n.id ' +
+          'WHERE pv.id = ? AND n.propietario = ?',
+        [newTransaction.punto_venta_id, userId],
+      );
+
+      if (!puntoVentaRows || puntoVentaRows.length === 0) {
+        throw new HttpException(
+          'El punto de venta no existe o no tienes permisos para registrar transacciones en él',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      if (newTransaction.tipo === 'egreso') {
+        // Expenses require a category
+        if (!newTransaction.categoria_id) {
+          throw new HttpException(
+            'Las transacciones de tipo egreso deben tener una categoría',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        const [categoryRows]: [any[], any] = await connection.query(
+          'SELECT ce.* FROM categorias_egresos ce ' +
+            'JOIN negocios n ON ce.negocio_id = n.id ' +
+            'JOIN puntos_venta pv ON pv.negocio_id = n.id ' +
+            'WHERE ce.id = ? AND pv.id = ? AND n.propietario = ?',
+          [newTransaction.categoria_id, newTransaction.punto_venta_id, userId],
+        );
+
+        if (!categoryRows || categoryRows.length === 0) {
+          throw new HttpException(
+            'La categoría no existe o no pertenece al negocio asociado al punto de venta',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (!newTransaction.monto_total) {
+          throw new HttpException(
+            'El monto total es requerido para transacciones de egreso',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        const monto_total = newTransaction.monto_total;
+
+        const [result]: any = await connection.query(
+          'INSERT INTO transacciones (punto_venta_id, tipo, fecha, monto_total, categoria_id, usuario_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            newTransaction.punto_venta_id,
+            newTransaction.tipo,
+            newTransaction.fecha,
+            monto_total,
+            newTransaction.categoria_id,
+            userId,
+          ],
+        );
+
+        const transactionId = result.insertId;
+
+        await connection.commit();
+
+        const [transactionRows]: [any[], any] = await connection.query(
+          'SELECT t.*, ce.nombre as categoria_nombre FROM transacciones t ' +
+            'LEFT JOIN categorias_egresos ce ON t.categoria_id = ce.id ' +
+            'WHERE t.id = ?',
+          [transactionId],
+        );
+
+        return transactionRows[0];
+      } else {
+        if (!newTransaction.detalles || newTransaction.detalles.length === 0) {
+          throw new HttpException(
+            'Las transacciones de tipo ingreso deben tener al menos un detalle',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        const productsId = newTransaction.detalles.map(
+          (detalle) => detalle.producto_id,
+        );
+
+        const [productsRows]: [any[], any] = await connection.query(
+          'SELECT p.id, p.precio_unitario, p.nombre, p.unidad_medida FROM productos p ' +
+            'JOIN negocios n ON p.negocio_id = n.id ' +
+            'JOIN puntos_venta pv ON pv.negocio_id = n.id ' +
+            'WHERE p.id IN (?) AND pv.id = ? AND n.propietario = ?',
+          [productsId, newTransaction.punto_venta_id, userId],
+        );
+
+        if (productsRows.length !== productsId.length) {
+          throw new HttpException(
+            'Uno o más productos no existen o no pertenecen al negocio asociado al punto de venta',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        const productMap = {};
+        productsRows.forEach((product) => {
+          productMap[product.id] = {
+            precio_unitario: product.precio_unitario,
+            nombre: product.nombre,
+            unidad_medida: product.unidad_medida,
+          };
+        });
+
+        let monto_total = 0;
+        const detailsWithPrices = newTransaction.detalles.map((detail) => {
+          const product = productMap[detail.producto_id];
+          const precio_unitario = product.precio_unitario;
+          const subtotal = Number(detail.cantidad * precio_unitario);
+          monto_total += subtotal;
+
+          return {
+            producto_id: detail.producto_id,
+            cantidad: detail.cantidad,
+            precio_unitario,
+            subtotal,
+            producto_nombre: product.nombre,
+            unidad_medida: product.unidad_medida,
+          };
+        });
+
+        if (newTransaction.monto_total !== undefined) {
+          const tolerance = 0.01;
+          if (Math.abs(monto_total - newTransaction.monto_total) > tolerance) {
+            console.log('comparacion', monto_total ,'---', newTransaction.monto_total);
+            
+            throw new HttpException(
+              `El monto total calculado (${monto_total}) no coincide con el monto proporcionado (${newTransaction.monto_total})`,
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        }
+
+        const [result]: any = await connection.query(
+          'INSERT INTO transacciones (punto_venta_id, tipo, fecha, monto_total, usuario_id) VALUES (?, ?, ?, ?, ?)',
+          [
+            newTransaction.punto_venta_id,
+            newTransaction.tipo,
+            newTransaction.fecha,
+            monto_total,
+            userId,
+          ],
+        );
+
+        const transactionId = result.insertId;
+
+        for (const detail of detailsWithPrices) {
+          await connection.query(
+            'INSERT INTO detalle_transacciones (transaccion_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
+            [
+              transactionId,
+              detail.producto_id,
+              detail.cantidad,
+              detail.precio_unitario,
+              detail.subtotal,
+            ],
+          );
+        }
+
+        await connection.commit();
+
+        return {
+          id: transactionId,
+          punto_venta_id: newTransaction.punto_venta_id,
+          tipo: newTransaction.tipo,
+          fecha: newTransaction.fecha,
+          monto_total,
+          usuario_id: userId,
+          detalles: detailsWithPrices,
+        };
+      }
+    } catch (error) {
+      if (connection) await connection.rollback();
+      throw new HttpException(
+        error.message || 'Error al crear la transacción',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {

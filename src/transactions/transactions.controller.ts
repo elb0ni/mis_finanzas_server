@@ -6,13 +6,15 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { JwtauthGuard } from 'src/auth/guards/JwtGuard.guard';
 import { JwtPayload } from 'src/auth/models/token.model';
-import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto ';
+import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto';
+import { CreateTransactionDto } from './dto/CreateTransactionDto';
 
 @UseGuards(JwtauthGuard)
 @Controller('transactions')
@@ -56,7 +58,7 @@ export class TransactionsController {
   }
 
   // Update an expense category
-  @Patch('expense-categories/:id')
+  @Put('expense-categories/:id')
   updateExpenseCategory(
     @Param('id') id: string,
     @Request() req,
@@ -79,5 +81,15 @@ export class TransactionsController {
     console.log(info);
 
     return this.transactionsService.deleteExpenseCategory(+id, info.sub);
+  }
+
+  @Post()
+  createTransaction(
+    @Body() newTransaction: CreateTransactionDto,
+    @Request() req,
+  ) {
+    const info = req.user as JwtPayload;
+
+    return this.transactionsService.createTransaction(info.sub, newTransaction);
   }
 }

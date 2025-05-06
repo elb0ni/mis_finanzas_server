@@ -7,7 +7,10 @@ import {
 } from 'mysql2/promise';
 import CreatePuntoVentaDto from './dto/CreatePointSale.dto';
 import CreateBusinessDto from './dto/CreateBusiness';
-import { UpdatePuntoVentaDto } from './dto/UpdatePuntoVentaDto';
+import {
+  UpdatePuntoVentaDto,
+  UpdatePuntoVentaStatusDto,
+} from './dto/UpdatePuntoVentaDto';
 
 @Injectable()
 export class BusinessService {
@@ -386,6 +389,90 @@ export class BusinessService {
     } catch (error) {
       throw new HttpException(
         error.message || 'Error al actualizar el punto de venta',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+
+  async updatePuntoVentaStatus(
+    userId: string,
+    puntoVentaId: number,
+    activo: UpdatePuntoVentaStatusDto,
+  ) {
+    let connection: PoolConnection | null = null;
+
+    try {
+      console.log(activo);
+      
+      connection = await this.pool.getConnection();
+  
+      // Verificar que el punto de venta existe
+      const [puntoVentaRows]: [any[], any] = await connection.query(
+        'SELECT * FROM puntos_venta WHERE id = ?',
+        [puntoVentaId],
+      );
+      if (!puntoVentaRows || puntoVentaRows.length === 0) {
+        throw new HttpException(
+          'El punto de venta especificado no existe',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+  
+      const puntoVenta = puntoVentaRows[0];
+  
+      // Verificar que el usuario existe
+      const [userRows]: [any[], any] = await connection.query(
+        'SELECT id FROM users WHERE id = ?',
+        [userId],
+      );
+      if (!userRows || userRows.length === 0) {
+        throw new HttpException(
+          'El usuario especificado no existe',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+  
+      // Verificar que el negocio existe y pertenece al usuario
+      const [businessRows]: [any[], any] = await connection.query(
+        'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
+        [puntoVenta.negocio_id, userId],
+      );
+      if (!businessRows || businessRows.length === 0) {
+        throw new HttpException(
+          'El negocio al que pertenece este punto de venta no existe o no pertenece al usuario',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+  
+      // Actualizar solo el campo 'activo' y el timestamp
+      // Convertir el booleano a tinyint (0 o 1)
+      const activoValue = activo.activo ? 1 : 0;
+      console.log(activoValue);
+      
+      await connection.query(
+        'UPDATE puntos_venta SET activo = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [activoValue, puntoVentaId],
+      );
+  
+      // Obtener el registro actualizado
+      const [updatedRecord] = await connection.query(
+        'SELECT * FROM puntos_venta WHERE id = ?',
+        [puntoVentaId],
+      );
+  
+      // Convertir el campo activo a booleano para la respuesta
+      const updatedPuntoVenta = {
+        ...updatedRecord[0],
+        activo: updatedRecord[0].activo === 1, // Convertir de 0/1 a false/true
+        mensaje: `El punto de venta ha sido ${activo ? 'activado' : 'desactivado'} correctamente`,
+      };
+      
+      return updatedPuntoVenta;
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al actualizar el estado del punto de venta',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {

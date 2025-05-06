@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, IsBoolean, IsInt, Length } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsBoolean, IsInt, Length, IsNotEmpty } from 'class-validator';
 
 export class UpdatePuntoVentaDto {
   @IsOptional()
@@ -40,4 +40,9 @@ export class UpdatePuntoVentaDto {
   @IsOptional()
   @IsInt()
   municipio?: number;
+}
+export class UpdatePuntoVentaStatusDto {
+  @IsBoolean()
+  @IsNotEmpty()
+  activo: boolean;
 }

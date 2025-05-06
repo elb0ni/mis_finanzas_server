@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Request,
@@ -14,7 +15,7 @@ import { JwtauthGuard } from 'src/auth/guards/JwtGuard.guard';
 import { JwtPayload } from 'src/auth/models/token.model';
 import CreateBusinessDto from './dto/CreateBusiness';
 import CreatePuntoVentaDto from './dto/CreatePointSale.dto';
-import { UpdatePuntoVentaDto } from './dto/UpdatePuntoVentaDto';
+import { UpdatePuntoVentaDto, UpdatePuntoVentaStatusDto } from './dto/UpdatePuntoVentaDto';
 
 @UseGuards(JwtauthGuard)
 @Controller('business')
@@ -70,6 +71,23 @@ export class BusinessController {
     console.log(info);
     return this.businessService.findPuntoVentaById(+id, +idPointSale, info.sub);
   }
+
+// Controller method
+@Patch('point-sale/:idPointSale/status')
+updatePuntoVentaStatus(
+  @Param('idPointSale') idPointSale: string,
+  @Body() updateStatusDto: UpdatePuntoVentaStatusDto,
+  @Request() req,
+) {
+  const info = req.user as JwtPayload;
+  console.log(info);
+  return this.businessService.updatePuntoVentaStatus(
+    info.sub,
+    +idPointSale,
+    updateStatusDto,
+  );
+}
+
 
   @Put('/:id/point-sale/:idPointSale')
   updatePuntoVenta(

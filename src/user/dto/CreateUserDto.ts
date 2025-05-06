@@ -1,5 +1,4 @@
-export default class  {
-    email: string;
-    password: string;
-  }
-  
+export default class {
+  email: string;
+  password: string;
+}
