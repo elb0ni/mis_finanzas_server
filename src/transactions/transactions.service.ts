@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto';
 import { CreateTransactionDto } from './dto/CreateTransactionDto';
+import { TransactionDateDto } from './dto/TransactionDateDto ';
 
 @Injectable()
 export class TransactionsService {
@@ -382,8 +383,13 @@ export class TransactionsService {
         if (newTransaction.monto_total !== undefined) {
           const tolerance = 0.01;
           if (Math.abs(monto_total - newTransaction.monto_total) > tolerance) {
-            console.log('comparacion', monto_total ,'---', newTransaction.monto_total);
-            
+            console.log(
+              'comparacion',
+              monto_total,
+              '---',
+              newTransaction.monto_total,
+            );
+
             throw new HttpException(
               `El monto total calculado (${monto_total}) no coincide con el monto proporcionado (${newTransaction.monto_total})`,
               HttpStatus.BAD_REQUEST,
@@ -439,4 +445,140 @@ export class TransactionsService {
       if (connection) connection.release();
     }
   }
+  async getTransactionsByBusiness(
+    userId: string,
+    businessId: number,
+    fecha: string // Formato 'YYYY-MM-DD'
+   ) {
+    let connection: PoolConnection | null = null;
+    try {
+      connection = await this.pool.getConnection();
+   
+      console.log('entro');
+      
+      // Verify that the business exists and belongs to the user
+      const [businessRows]: [any[], any] = await connection.query(
+        'SELECT * FROM negocios WHERE id = ? AND propietario = ?',
+        [businessId, userId]
+      );
+   
+      if (!businessRows || businessRows.length === 0) {
+        throw new HttpException(
+          'El negocio no existe o no tienes permisos para acceder a él',
+          HttpStatus.NOT_FOUND
+        );
+      }
+   
+      // Get all puntos_venta for this business
+      const [puntosVentaRows]: [any[], any] = await connection.query(
+        'SELECT id FROM puntos_venta WHERE negocio_id = ?',
+        [businessId]
+      );
+   
+ 
+      
+
+      if (!puntosVentaRows || puntosVentaRows.length === 0) {
+        return {
+          transactions: [],
+          summary: {
+            totalIngresos: 0,
+            totalEgresos: 0,
+            balance: 0
+          }
+        };
+      }
+   
+      const puntoVentaIds = puntosVentaRows.map(pv => pv.id);
+   
+
+      console.log('puntos de venta', puntoVentaIds);
+      // Create start and end of the day
+      const fechaInicio = `${fecha} 00:00:00`;
+      const fechaFin = `${fecha} 23:59:59`;
+
+      console.log('Fecha inicio', fechaInicio);
+      console.log('Fecha fin ', fechaFin);
+   
+      const query = `SELECT 
+          t.*, 
+          pv.nombre as punto_venta_nombre,
+          ce.nombre as categoria_nombre
+        FROM 
+          transacciones t
+          LEFT JOIN puntos_venta pv ON t.punto_venta_id = pv.id
+          LEFT JOIN categorias_egresos ce ON t.categoria_id = ce.id
+        WHERE 
+          t.punto_venta_id IN (?) AND
+          t.fecha BETWEEN ? AND ?
+        ORDER BY t.fecha DESC`
+      // Get transactions for this business's points of sale for the specific date
+      const [transactionsRows]: [any[], any] = await connection.query(
+        query,
+        [puntoVentaIds, fechaInicio, fechaFin]
+      );
+      console.log('query',query );
+      
+   console.log('respuesta trabsacciones',transactionsRows );
+   
+      // Get transaction details for income transactions
+      const ingresos = transactionsRows.filter(t => t.tipo === 'ingreso');
+      if (ingresos.length > 0) {
+        const ingresoIds = ingresos.map(t => t.id);
+        
+        const [detallesRows]: [any[], any] = await connection.query(
+          `SELECT 
+            dt.*,
+            p.nombre as producto_nombre,
+            p.unidad_medida
+          FROM 
+            detalle_transacciones dt
+            JOIN productos p ON dt.producto_id = p.id
+          WHERE dt.transaccion_id IN (?)`,
+          [ingresoIds]
+        );
+        
+        // Group details by transaction_id
+        const detallesPorTransaccion = {};
+        detallesRows.forEach(detalle => {
+          if (!detallesPorTransaccion[detalle.transaccion_id]) {
+            detallesPorTransaccion[detalle.transaccion_id] = [];
+          }
+          detallesPorTransaccion[detalle.transaccion_id].push(detalle);
+        });
+        
+        // Add details to transactions
+        transactionsRows.forEach(transaction => {
+          if (transaction.tipo === 'ingreso') {
+            transaction.detalles = detallesPorTransaccion[transaction.id] || [];
+          }
+        });
+      }
+   
+      // Calculate summary statistics for transactions on this date
+      const totalIngresos = transactionsRows
+        .filter(t => t.tipo === 'ingreso')
+        .reduce((sum, t) => sum + parseFloat(t.monto_total), 0);
+        
+      const totalEgresos = transactionsRows
+        .filter(t => t.tipo === 'egreso')
+        .reduce((sum, t) => sum + parseFloat(t.monto_total), 0);
+   
+      return {
+        transactions: transactionsRows,
+        summary: {
+          totalIngresos,
+          totalEgresos,
+          balance: totalIngresos - totalEgresos
+        }
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Error al obtener las transacciones del negocio',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    } finally {
+      if (connection) connection.release();
+    }
+   }
 }

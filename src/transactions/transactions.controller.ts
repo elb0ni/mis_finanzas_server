@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { JwtauthGuard } from 'src/auth/guards/JwtGuard.guard';
 import { JwtPayload } from 'src/auth/models/token.model';
 import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto';
 import { CreateTransactionDto } from './dto/CreateTransactionDto';
+import { TransactionDateDto } from './dto/TransactionDateDto ';
 
 @UseGuards(JwtauthGuard)
 @Controller('transactions')
@@ -91,5 +93,15 @@ export class TransactionsController {
     const info = req.user as JwtPayload;
 
     return this.transactionsService.createTransaction(info.sub, newTransaction);
+  }
+
+  @Get("business/:id") 
+  getTransactionsByBusiness(
+    @Param('id') businessId: string,
+    @Request() req,
+    @Query('fecha') fecha: string
+  ) {
+    const info = req.user as JwtPayload;
+    return this.transactionsService.getTransactionsByBusiness(info.sub, +businessId, fecha);
   }
 }
