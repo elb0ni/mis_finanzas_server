@@ -25,4 +25,6 @@ export class CreateExpenseCategoryDto {
   @IsOptional()
   @IsBoolean({ message: 'El campo activo debe ser un valor booleano' })
   activo?: boolean = true;
+
+  
 }
