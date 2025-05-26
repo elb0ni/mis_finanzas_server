@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       ]),
       ignoreExpiration: true,
-      secretOrKey: process.env.JWT_KEY || 'JeMa1>PyJ/BBp8S@)M782?O',
+      secretOrKey: process.env.JWT_KEY || 'no hay',
 
     });
   }
@@ -44,7 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const now = new Date();
 
       if (expiresAt < now) {
-        // La sesión ha expirado, marcarla como inactiva en la base de datos
+        // La sesión ha expirado, marcarla como inactiva en la base de dato
         await this.pool.query(
           'UPDATE sessions SET is_active = 0 WHERE session_id = ?',
           [payload.sessionId],

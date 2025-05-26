@@ -9,6 +9,7 @@ import { BusinessModule } from './business/business.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ToolsModule } from './tools/tools.module';
 import { ProductsModule } from './products/products.module';
+import { FinancialAnalysisModule } from './financial-analysis/financial-analysis.module';
 import config from './config';
 
 @Module({
@@ -25,6 +26,7 @@ import config from './config';
     TransactionsModule,
     ToolsModule,
     ProductsModule,
+    FinancialAnalysisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
