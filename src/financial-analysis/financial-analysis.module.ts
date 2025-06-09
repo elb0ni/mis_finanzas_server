@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConfigVerificationService } from './services/config-verification.service';
-import { ConfigVerificationController } from './controllers/config-verification.controller';
+import { FinancialAnalysisService } from './services/financial-analysis.service';
+import { FinancialAnalysisController } from './controllers/financial-analysis.controller';
 
 @Module({
-  providers: [ConfigVerificationService],
-  controllers: [ConfigVerificationController]
+  providers: [FinancialAnalysisService],
+  controllers: [FinancialAnalysisController]
 })
 export class FinancialAnalysisModule {}

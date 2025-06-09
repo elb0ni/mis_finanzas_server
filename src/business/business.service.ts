@@ -50,7 +50,8 @@ export class BusinessService {
         ],
       );
 
-      // Obtener el negocio recién creado para devolverlo
+      // Obtener el negocio recién creado para devo
+      
       const [createdBusiness] = await connection.query(
         'SELECT * FROM negocios WHERE id = ?',
         [result.insertId],
@@ -295,7 +296,7 @@ export class BusinessService {
         );
       }
 
-      // Verificar el departamento si está siendo actualizado
+      // Verificar el departamento si está siendo actualizad
       if (updatePuntoVentaDto.departamento) {
         const [deptoRows]: [any[], any] = await connection.query(
           'SELECT id_departamento FROM departamentos WHERE id_departamento = ?',
@@ -309,7 +310,7 @@ export class BusinessService {
         }
       }
 
-      // Verificar el municipio si está siendo actualizado
+      // Verificar el municipio si está siendo actualizad
       if (updatePuntoVentaDto.municipio) {
         const departamentoId =
           updatePuntoVentaDto.departamento || puntoVenta.departamento;
