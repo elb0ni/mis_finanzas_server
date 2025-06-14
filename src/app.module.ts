@@ -11,6 +11,7 @@ import { ToolsModule } from './tools/tools.module';
 import { ProductsModule } from './products/products.module';
 import { FinancialAnalysisModule } from './financial-analysis/financial-analysis.module';
 import config from './config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import config from './config';
     ToolsModule,
     ProductsModule,
     FinancialAnalysisModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

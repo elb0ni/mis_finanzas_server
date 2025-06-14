@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { FinancialAnalysisService } from './services/financial-analysis.service';
-import { FinancialAnalysisController } from './controllers/financial-analysis.controller';
+import { FinancialAnalysisService } from './financial-analysis.service';
+import { FinancialAnalysisController } from './financial-analysis.controller';
 
 @Module({
   providers: [FinancialAnalysisService],

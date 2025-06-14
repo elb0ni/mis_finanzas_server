@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -40,13 +42,26 @@ export class TransactionsController {
 
   // Get all expense categories for a business
   @Get('business/:id/expense-categories')
-  findExpenseCategories(@Param('id') id: string, @Request() req) {
+  findExpenseCategories(
+    @Param('id') id: string,
+    @Query('tipo_costo') tipoCosto: string,
+    @Request() req,
+  ) {
     const info = req.user as JwtPayload;
     console.log(info);
+
+    // Validar que el tipo_costo sea válido
+    if (tipoCosto && !['fijo', 'variable'].includes(tipoCosto.toLowerCase())) {
+      throw new HttpException(
+        'El tipo de costo debe ser "fijo" o "variable"',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     return this.transactionsService.findExpenseCategoriesByBusiness(
       +id,
       info.sub,
+      tipoCosto?.toLowerCase(),
     );
   }
 
@@ -95,13 +110,34 @@ export class TransactionsController {
     return this.transactionsService.createTransaction(info.sub, newTransaction);
   }
 
-  @Get("business/:id") 
+  @Get('business/:id')
   getTransactionsByBusiness(
     @Param('id') businessId: string,
     @Request() req,
-    @Query('fecha') fecha: string
+    @Query('fecha') fecha: string,
   ) {
     const info = req.user as JwtPayload;
-    return this.transactionsService.getTransactionsByBusiness(info.sub, +businessId, fecha);
+    return this.transactionsService.getTransactionsByBusiness(
+      info.sub,
+      +businessId,
+      fecha,
+    );
+  }
+
+  @Get('dailytransaciton/:businessId')
+  getTransactionByDay(
+    @Query('fecha') fecha: string,
+    @Query('tipo') tipo: string,
+    @Param('businessId') businessId,
+    @Request() req,
+  ) {
+    const user = req.user as JwtPayload;
+
+    return this.transactionsService.getTransactionByDay(
+      user.sub,
+      businessId,
+      fecha,
+      tipo,
+    );
   }
 }

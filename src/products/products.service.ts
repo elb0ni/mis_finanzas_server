@@ -14,7 +14,6 @@ export class ProductsService {
     try {
       connection = await this.pool.getConnection();
 
-      // Verificar que el usuario existe
       const [userRows]: [any[], any] = await connection.query(
         'SELECT id FROM users WHERE id = ?',
         [userId],
