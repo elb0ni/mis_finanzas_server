@@ -6,7 +6,7 @@ import { TransactionDateDto } from './dto/TransactionDateDto ';
 
 @Injectable()
 export class TransactionsService {
-  constructor(@Inject('MYSQL') private pool: Pool) {}
+  constructor(@Inject('MYSQL') private pool: Pool) { }
 
   // Create a new expense category
   async createExpenseCategory(
@@ -119,8 +119,8 @@ export class TransactionsService {
       // Verify that the category exists and belongs to a business owned by the user
       const [categoryRows]: [any[], any] = await connection.query(
         'SELECT ce.* FROM categorias_egresos ce ' +
-          'JOIN negocios n ON ce.negocio_id = n.id ' +
-          'WHERE ce.id = ? AND n.propietario = ?',
+        'JOIN negocios n ON ce.negocio_id = n.id ' +
+        'WHERE ce.id = ? AND n.propietario = ?',
         [categoryId, userId],
       );
 
@@ -155,8 +155,8 @@ export class TransactionsService {
       // Verify that the category exists and belongs to a business owned by the user
       const [categoryRows]: [any[], any] = await connection.query(
         'SELECT ce.* FROM categorias_egresos ce ' +
-          'JOIN negocios n ON ce.negocio_id = n.id ' +
-          'WHERE ce.id = ? AND n.propietario = ?',
+        'JOIN negocios n ON ce.negocio_id = n.id ' +
+        'WHERE ce.id = ? AND n.propietario = ?',
         [categoryId, userId],
       );
 
@@ -229,8 +229,8 @@ export class TransactionsService {
       // Verify that the category exists and belongs to a business owned by the user
       const [categoryRows]: [any[], any] = await connection.query(
         'SELECT ce.* FROM categorias_egresos ce ' +
-          'JOIN negocios n ON ce.negocio_id = n.id ' +
-          'WHERE ce.id = ? AND n.propietario = ?',
+        'JOIN negocios n ON ce.negocio_id = n.id ' +
+        'WHERE ce.id = ? AND n.propietario = ?',
         [categoryId, userId],
       );
 
@@ -271,8 +271,8 @@ export class TransactionsService {
 
       const [puntoVentaRows]: [any[], any] = await connection.query(
         'SELECT pv.* FROM puntos_venta pv ' +
-          'JOIN negocios n ON pv.negocio_id = n.id ' +
-          'WHERE pv.id = ? AND n.propietario = ?',
+        'JOIN negocios n ON pv.negocio_id = n.id ' +
+        'WHERE pv.id = ? AND n.propietario = ?',
         [newTransaction.punto_venta_id, userId],
       );
 
@@ -294,9 +294,9 @@ export class TransactionsService {
 
         const [categoryRows]: [any[], any] = await connection.query(
           'SELECT ce.* FROM categorias_egresos ce ' +
-            'JOIN negocios n ON ce.negocio_id = n.id ' +
-            'JOIN puntos_venta pv ON pv.negocio_id = n.id ' +
-            'WHERE ce.id = ? AND pv.id = ? AND n.propietario = ?',
+          'JOIN negocios n ON ce.negocio_id = n.id ' +
+          'JOIN puntos_venta pv ON pv.negocio_id = n.id ' +
+          'WHERE ce.id = ? AND pv.id = ? AND n.propietario = ?',
           [newTransaction.categoria_id, newTransaction.punto_venta_id, userId],
         );
 
@@ -335,8 +335,8 @@ export class TransactionsService {
 
         const [transactionRows]: [any[], any] = await connection.query(
           'SELECT t.*, ce.nombre as categoria_nombre FROM transacciones t ' +
-            'LEFT JOIN categorias_egresos ce ON t.categoria_id = ce.id ' +
-            'WHERE t.id = ?',
+          'LEFT JOIN categorias_egresos ce ON t.categoria_id = ce.id ' +
+          'WHERE t.id = ?',
           [transactionId],
         );
 
@@ -357,9 +357,9 @@ export class TransactionsService {
 
         const [productsRows]: [any[], any] = await connection.query(
           'SELECT p.id, p.precio_unitario, p.nombre, p.unidad_medida FROM productos p ' +
-            'JOIN negocios n ON p.negocio_id = n.id ' +
-            'JOIN puntos_venta pv ON pv.negocio_id = n.id ' +
-            'WHERE p.id IN (?) AND pv.id = ? AND n.propietario = ?',
+          'JOIN negocios n ON p.negocio_id = n.id ' +
+          'JOIN puntos_venta pv ON pv.negocio_id = n.id ' +
+          'WHERE p.id IN (?) AND pv.id = ? AND n.propietario = ?',
           [productsId, newTransaction.punto_venta_id, userId],
         );
 
@@ -618,14 +618,80 @@ export class TransactionsService {
       }
 
       const [transactionData]: [any[], any] = await connection.query(
-        ``
-      )
+        `SELECT 
+        t.id,
+        t.punto_venta_id,
+        t.tipo,
+        t.fecha,
+        t.monto_total,
+        t.categoria_id,
+        t.usuario_id,
+        t.fecha_creacion,
+        t.concepto,
+        dt.id as detalle_id,
+        dt.producto_id,
+        p.nombre,
+        dt.cantidad,
+        dt.precio_unitario,
+        dt.subtotal
+      FROM transacciones t
+      LEFT JOIN detalle_transacciones dt ON t.id = dt.transaccion_id AND t.tipo = 'ingreso'
+      LEFT JOIN productos p on(dt.producto_id = p.id )  
+      INNER JOIN puntos_venta pv ON t.punto_venta_id = pv.id
+      INNER JOIN negocios n ON pv.negocio_id = n.id
+      WHERE DATE(t.fecha) = ?
+        AND t.tipo = ?
+        AND n.id = ?
+        AND n.propietario = ?
+      ORDER BY t.fecha DESC, t.id`,
+        [fecha, tipo, businessId, userId]
+      );
+
+      // Agrupar las transacciones con sus detall
+      const transactionsMap = new Map();
+
+      transactionData.forEach(row => {
+        const transactionId = row.id;
+
+        if (!transactionsMap.has(transactionId)) {
+          transactionsMap.set(transactionId, {
+            id: row.id,
+            punto_venta_id: row.punto_venta_id,
+            tipo: row.tipo,
+            fecha: row.fecha,
+            monto_total: row.monto_total,
+            categoria_id: row.categoria_id,
+            usuario_id: row.usuario_id,
+            fecha_creacion: row.fecha_creacion,
+            concepto: row.concepto,
+            detalles: []
+          });
+        }
+
+        // Solo agregar detalles si es ingreso y hay datos de detalle
+        if (row.tipo === 'ingreso' && row.detalle_id) {
+          transactionsMap.get(transactionId).detalles.push({
+            id: row.detalle_id,
+            nombre:row.nombre,
+            producto_id: row.producto_id,
+            cantidad: row.cantidad,
+            precio_unitario: row.precio_unitario,
+            subtotal: row.subtotal
+          });
+        }
+      });
+
+      return Array.from(transactionsMap.values());
+
     } catch (error: any) {
       throw new HttpException(
         error.message || 'Error al ejecutar el servicio',
         error.status || 500,
       );
     } finally {
+      if (connection) {
+        connection.release();
+      }
     }
   }
 }
