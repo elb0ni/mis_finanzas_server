@@ -100,6 +100,8 @@ export class TransactionsController {
     return this.transactionsService.deleteExpenseCategory(+id, info.sub);
   }
 
+  //transactions section
+
   @Post()
   createTransaction(
     @Body() newTransaction: CreateTransactionDto,
@@ -140,4 +142,6 @@ export class TransactionsController {
       tipo,
     );
   }
+
+
 }
