@@ -700,4 +700,64 @@ export class TransactionsService {
       }
     }
   }
+
+  async deleteTransaction(transactionId: number, userId: string) {
+    let connection: PoolConnection | null = null;
+    try {
+      connection = await this.pool.getConnection();
+      await connection.beginTransaction();
+
+      // Verify that the transaction exists and belongs to a business owned by the user
+      const [transactionRows]: [any[], any] = await connection.query(
+        'SELECT t.*, pv.negocio_id FROM transacciones t ' +
+          'JOIN puntos_venta pv ON t.punto_venta_id = pv.id ' +
+          'JOIN negocios n ON pv.negocio_id = n.id ' +
+          'WHERE t.id = ? AND n.propietario = ?',
+        [transactionId, userId],
+      );
+
+      if (!transactionRows || transactionRows.length === 0) {
+        throw new HttpException(
+          'La transacción no existe o no tienes permisos para eliminarla',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const transaction = transactionRows[0];
+
+      // If it's an income transaction, delete the transaction details first
+      if (transaction.tipo === 'ingreso') {
+        await connection.query(
+          'DELETE FROM detalle_transacciones WHERE transaccion_id = ?',
+          [transactionId],
+        );
+      }
+
+      // Delete the transaction
+      await connection.query('DELETE FROM transacciones WHERE id = ?', [
+        transactionId,
+      ]);
+
+      await connection.commit();
+
+      return {
+        success: true,
+        message: 'Transacción eliminada correctamente',
+        deletedTransaction: {
+          id: transaction.id,
+          tipo: transaction.tipo,
+          fecha: transaction.fecha,
+          monto_total: transaction.monto_total,
+        },
+      };
+    } catch (error) {
+      if (connection) await connection.rollback();
+      throw new HttpException(
+        error.message || 'Error al eliminar la transacción',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      if (connection) connection.release();
+    }
+  }
 }

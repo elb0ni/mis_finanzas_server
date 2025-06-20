@@ -143,5 +143,9 @@ export class TransactionsController {
     );
   }
 
-
+  @Delete(':id')
+  deteleTransaction(@Param('id') transactionId, @Request() req) {
+    const user = req.user as JwtPayload;
+    return this.transactionsService.deleteTransaction(transactionId, user.sub);
+  }
 }
