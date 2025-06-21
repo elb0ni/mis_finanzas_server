@@ -8,7 +8,6 @@ export class ProductsService {
   constructor(@Inject('MYSQL') private pool: Pool) {}
 
   async createProduct(userId: string, newProduct: CreateProductDto) {
-    console.log(newProduct);
 
     let connection: PoolConnection | null = null;
     try {
@@ -77,7 +76,6 @@ export class ProductsService {
     productId: number,
     updateProductDto: UpdateProductDto,
   ) {
-    console.log(updateProductDto);
 
     let connection: PoolConnection | null = null;
     try {

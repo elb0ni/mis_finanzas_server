@@ -42,10 +42,6 @@ export class ToolsController {
     @Query('año') año?: number,
     @Query('mes') mes?: number,
   ) {
-    console.log(negocioId);
-    console.log(año);
-    console.log(mes);
-
     return this.toolsService.generateFixedCosts(negocioId, año, mes);
   }
 }

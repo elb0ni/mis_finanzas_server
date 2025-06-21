@@ -27,21 +27,18 @@ export class BusinessController {
   @Post()
   createBusiness(@Request() req, @Body() newBusiness: CreateBusinessDto) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.create(info.sub, newBusiness);
   }
 
   @Get()
   findUserBusinesses(@Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.findByUser(info.sub);
   }
 
   @Delete(':id')
   deleteBusiness(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.deleteBusiness(+id, info.sub);
   }
 
@@ -50,14 +47,12 @@ export class BusinessController {
   @Post('point-sale')
   createPuntoVenta(@Request() req, @Body() newPuntoVenta: CreatePuntoVentaDto) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.createPuntoVenta(info.sub, newPuntoVenta);
   }
 
   @Get('/:id/point-sale')
   findPuntosVenta(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.findPuntosVentaByNegocio(+id, info.sub);
   }
 
@@ -68,7 +63,6 @@ export class BusinessController {
     @Request() req,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.findPuntoVentaById(+id, +idPointSale, info.sub);
   }
 
@@ -80,7 +74,6 @@ updatePuntoVentaStatus(
   @Request() req,
 ) {
   const info = req.user as JwtPayload;
-  console.log(info);
   return this.businessService.updatePuntoVentaStatus(
     info.sub,
     +idPointSale,
@@ -97,7 +90,6 @@ updatePuntoVentaStatus(
     @Request() req,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.updatePuntoVenta(
       info.sub,
       +idPointSale,
@@ -108,7 +100,6 @@ updatePuntoVentaStatus(
   @Delete('point-sale/:id')
   deletePuntoVenta(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.businessService.deletePuntoVenta(+id, info.sub);
   }
 }

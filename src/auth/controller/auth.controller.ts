@@ -30,7 +30,6 @@ export class AuthController {
   @Get('check')
   @UseGuards(JwtauthGuard)
   checkSession(@Request() req) {
-    console.log(req.user);
     
     return {
       status: 'success',

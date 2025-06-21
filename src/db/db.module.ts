@@ -12,15 +12,6 @@ import config from 'src/config';
         const { host, port, username, password, database } = 
           configService.database;
         
-        // DEBUG: Verificar que las variables están llegando
-        console.log('DB Config:', {
-          host,
-          port,
-          username,
-          database: database ? '***SET***' : 'UNDEFINED',
-          password: password ? '***SET***' : 'UNDEFINED'
-        });
-        
         if (!database) {
           throw new Error('Database name is not defined in environment variables');
         }
@@ -48,14 +39,6 @@ import config from 'src/config';
         const { host, port, username, password, database } = 
           configService.databaseClient;
         
-        // DEBUG: Verificar configuración de clientes
-        console.log('Clients DB Config:', {
-          host,
-          port,
-          username,
-          database: database ? '***SET***' : 'UNDEFINED',
-          password: password ? '***SET***' : 'UNDEFINED'
-        });
         
         if (!database) {
           throw new Error('Clients database name is not defined in environment variables');

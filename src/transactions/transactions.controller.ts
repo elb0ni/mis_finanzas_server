@@ -32,7 +32,6 @@ export class TransactionsController {
     @Body() newCategory: CreateExpenseCategoryDto,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
 
     return this.transactionsService.createExpenseCategory(
       info.sub,
@@ -48,7 +47,6 @@ export class TransactionsController {
     @Request() req,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
 
     // Validar que el tipo_costo sea válido
     if (tipoCosto && !['fijo', 'variable'].includes(tipoCosto.toLowerCase())) {
@@ -69,8 +67,6 @@ export class TransactionsController {
   @Get('expense-categories/:id')
   findExpenseCategoryById(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
-
     return this.transactionsService.findExpenseCategoryById(+id, info.sub);
   }
 
@@ -82,8 +78,6 @@ export class TransactionsController {
     @Body() updateData: Partial<CreateExpenseCategoryDto>,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
-
     return this.transactionsService.updateExpenseCategory(
       +id,
       info.sub,
@@ -95,8 +89,6 @@ export class TransactionsController {
   @Delete('expense-categories/:id')
   deleteExpenseCategory(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
-
     return this.transactionsService.deleteExpenseCategory(+id, info.sub);
   }
 

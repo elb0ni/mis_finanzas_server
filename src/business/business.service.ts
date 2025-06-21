@@ -162,13 +162,10 @@ export class BusinessService {
   //POINT OF SALE
 
   async createPuntoVenta(userId: string, newPuntoVenta: CreatePuntoVentaDto) {
-    console.log(newPuntoVenta);
 
     let connection: PoolConnection | null = null;
     try {
       connection = await this.pool.getConnection();
-      console.log('ANTES');
-      // Verificar que el usuario existe
       const [userRows]: [any[], any] = await connection.query(
         'SELECT id FROM users WHERE id = ?',
         [userId],
@@ -234,7 +231,6 @@ export class BusinessService {
         ],
       );
 
-      console.log('DESPUES');
       // El resultado ahora contiene directamente la fila insertada
       return result[0];
     } catch (error) {
@@ -252,7 +248,6 @@ export class BusinessService {
     puntoVentaId: number,
     updatePuntoVentaDto: UpdatePuntoVentaDto,
   ) {
-    console.log(updatePuntoVentaDto);
 
     let connection: PoolConnection | null = null;
     try {
@@ -405,8 +400,6 @@ export class BusinessService {
     let connection: PoolConnection | null = null;
 
     try {
-      console.log(activo);
-      
       connection = await this.pool.getConnection();
   
       // Verificar que el punto de venta existe
@@ -450,7 +443,6 @@ export class BusinessService {
       // Actualizar solo el campo 'activo' y el timestamp
       // Convertir el booleano a tinyint (0 o 1)
       const activoValue = activo.activo ? 1 : 0;
-      console.log(activoValue);
       
       await connection.query(
         'UPDATE puntos_venta SET activo = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',

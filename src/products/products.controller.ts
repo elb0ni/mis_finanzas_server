@@ -24,14 +24,12 @@ export class ProductsController {
   @Post()
   createProduct(@Request() req, @Body() newProduct: CreateProductDto) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.productsService.createProduct(info.sub, newProduct);
   }
 
   @Get('/business/:id')
   findProductsByBusiness(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.productsService.findProductsByBusiness(+id, info.sub);
   }
 
@@ -42,7 +40,6 @@ export class ProductsController {
     @Request() req,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.productsService.findProductById(+id, +productId, info.sub);
   }
 
@@ -53,7 +50,7 @@ export class ProductsController {
     @Request() req,
   ) {
     const info = req.user as JwtPayload;
-    console.log(info);
+
     return this.productsService.updateProduct(
       info.sub,
       +id,
@@ -64,7 +61,6 @@ export class ProductsController {
   @Delete(':id')
   deleteProduct(@Param('id') id: string, @Request() req) {
     const info = req.user as JwtPayload;
-    console.log(info);
     return this.productsService.deleteProduct(+id, info.sub);
   }
 }

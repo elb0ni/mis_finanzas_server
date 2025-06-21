@@ -29,8 +29,6 @@ export class FinancialAnalysisService {
         );
       }
 
-      console.log('inicio');
-
       const [response] = await connection.query(
         `
         SELECT 
@@ -64,7 +62,6 @@ export class FinancialAnalysisService {
         [userId, fecha, userId, fecha],
       );
 
-      console.log('fin');
       return response[0];
     } catch (error) {
       throw new HttpException(
@@ -728,13 +725,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
     `,
         [businessId, año, mes, businessId, businessId, año, mes],
       );
-
-      console.log(año);
-      console.log(mes);
-      console.log(userId);
-      
-      console.log(balancePointData);
-      
       return balancePointData;
 
     } catch (error) {
