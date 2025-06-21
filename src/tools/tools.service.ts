@@ -70,7 +70,6 @@ export class ToolsService {
     }
   }
 
-  // Método manual por si quieres ejecutarlo bajo demanda
   async generateFixedCosts(negocioId: number, año?: number, mes?: number) {
     const now = new Date();
     const targetAño = año || now.getFullYear();

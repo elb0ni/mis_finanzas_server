@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { CreateExpenseCategoryDto } from './dto/CreateExpenseCategoryDto';
 import { CreateTransactionDto } from './dto/CreateTransactionDto';
-import { TransactionDateDto } from './dto/TransactionDateDto ';
 import { BusinessDailySummary, Transaction } from 'utils/transaction';
 
 @Injectable()
@@ -72,7 +71,7 @@ export class TransactionsService {
     try {
       connection = await this.pool.getConnection();
 
-      // Verify that the business exists and belongs to the user
+      // Verify that the business exists and belongs to the 
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
         [businessId, userId],
@@ -354,8 +353,6 @@ export class TransactionsService {
           (detalle) => detalle.producto_id,
         );
 
-        console.log(productsId);
-
         const [productsRows]: [any[], any] = await connection.query(
           'SELECT p.id, p.precio_unitario, p.nombre, p.unidad_medida FROM productos p ' +
             'JOIN negocios n ON p.negocio_id = n.id ' +
@@ -400,13 +397,6 @@ export class TransactionsService {
         if (newTransaction.monto_total !== undefined) {
           const tolerance = 0.01;
           if (Math.abs(monto_total - newTransaction.monto_total) > tolerance) {
-            console.log(
-              'comparacion',
-              monto_total,
-              '---',
-              newTransaction.monto_total,
-            );
-
             throw new HttpException(
               `El monto total calculado (${monto_total}) no coincide con el monto proporcionado (${newTransaction.monto_total})`,
               HttpStatus.BAD_REQUEST,
@@ -470,9 +460,6 @@ export class TransactionsService {
     let connection: PoolConnection | null = null;
     try {
       connection = await this.pool.getConnection();
-
-      console.log('entro');
-
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT * FROM negocios WHERE id = ? AND propietario = ?',
         [businessId, userId],
@@ -504,13 +491,9 @@ export class TransactionsService {
 
       const puntoVentaIds = puntosVentaRows.map((pv) => pv.id);
 
-      console.log('puntos de venta', puntoVentaIds);
       // Create start and end of the day
       const fechaInicio = `${fecha} 00:00:00`;
       const fechaFin = `${fecha} 23:59:59`;
-
-      console.log('Fecha inicio', fechaInicio);
-      console.log('Fecha fin ', fechaFin);
 
       const query = `SELECT 
            t.id,
@@ -537,9 +520,6 @@ export class TransactionsService {
         fechaInicio,
         fechaFin,
       ]);
-      console.log('query', query);
-
-      console.log('respuesta trabsacciones', transactionsRows);
 
       // Get transaction details for income transactions
       const ingresos = transactionsRows.filter((t) => t.tipo === 'ingreso');

@@ -29,7 +29,6 @@ export class FinancialAnalysisController {
     @Param('businessId') businessId: number,
     @Query('fecha') fecha: string,
   ) {
-    console.log(fecha);
 
     const user = req.user as JwtPayload;
 
