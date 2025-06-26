@@ -1,7 +1,5 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Pool, PoolConnection } from 'mysql2/promise';
-import { ConfigVerificationResponseDto } from './dto/config-verification.dto';
-import { QuickConfirmationDto } from './dto/quick-confirmation.dto';
 import { createFixedCost } from './dto/createFixedCost.dto';
 import { UpdateFixedCostDto } from './dto/updateFixedCost.dto';
 
