@@ -644,7 +644,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
     try {
       connection = await this.pool.getConnection();
 
-      // Verificar que el negocio existe y pertenece al usuario
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
         [businessId, userId],
@@ -689,7 +688,7 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
-      // Si las validaciones pasan, ejecutar el query principal
+
       const [balancePointData]: [any[], any] = await connection.query(
         `
       WITH costos_fijos_mes AS (
