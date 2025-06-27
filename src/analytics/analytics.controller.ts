@@ -66,7 +66,7 @@ export class AnalyticsController {
     }
 
     const user = req.user as JwtPayload;
-    return this.analyticsService.getWeeklyPerformance(
+    return this.analyticsService.getWeekBestSellers(
       fecha,
       businessId,
       user.sub,

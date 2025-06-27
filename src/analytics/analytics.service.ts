@@ -6,7 +6,7 @@ export class AnalyticsService {
   constructor(
     @Inject('MYSQL') private pool: Pool,
     @Inject('MYSQL_CLIENTS') private poolClient: Pool,
-  ) {}
+  ) { }
 
   async getWeeklyPerformance(fecha, businessId, userId) {
     let connection: PoolConnection | null = null;
@@ -147,6 +147,66 @@ export class AnalyticsService {
         );
       }
 
+      const [weeklyBestSellersData]: [any[], any] = await connection.query(
+              `WITH
+              fecha_input AS (
+                SELECT DATE(?) as fecha_consulta
+              ),
+              lunes_semana AS (
+                SELECT
+                  fecha_consulta,
+                  CASE
+                    WHEN WEEKDAY(fecha_consulta) = 0 THEN fecha_consulta
+                    ELSE DATE_SUB(fecha_consulta, INTERVAL WEEKDAY(fecha_consulta) DAY)
+                  END as lunes_fecha,
+                  CASE
+                    WHEN WEEKDAY(fecha_consulta) = 0 THEN DATE_ADD(fecha_consulta, INTERVAL 6 DAY)
+                    ELSE DATE_ADD(DATE_SUB(fecha_consulta, INTERVAL WEEKDAY(fecha_consulta) DAY), INTERVAL 6 DAY)
+                  END as domingo_fecha
+                FROM fecha_input
+              )
+              SELECT
+                p.id as producto_id,
+                p.nombre as producto_nombre,
+                SUM(dt.cantidad) as cantidad_total_vendida,
+                SUM(dt.subtotal) as ingresos_generados,
+                ROUND(SUM(dt.cantidad * (p.precio_unitario - p.costo_unitario)), 2) as ganancia_total_producto,
+                RANK() OVER (ORDER BY SUM(dt.cantidad) DESC) as ranking_por_cantidad,
+                ROUND((SUM(dt.cantidad) * 100.0) / (
+                  SELECT SUM(dt2.cantidad) 
+                  FROM puntos_venta pv2
+                  INNER JOIN transacciones t2 ON pv2.id = t2.punto_venta_id
+                  INNER JOIN detalle_transacciones dt2 ON t2.id = dt2.transaccion_id
+                  CROSS JOIN lunes_semana ls2
+                  WHERE pv2.negocio_id = ?
+                    AND t2.tipo = 'ingreso'
+                    AND DATE(t2.fecha) BETWEEN ls2.lunes_fecha AND ls2.domingo_fecha
+                ), 2) as porcentaje_cantidad,
+                CASE 
+                  WHEN SUM(dt.subtotal) >= 1000000 THEN 
+                    CONCAT(ROUND(SUM(dt.subtotal) / 1000000, 1), 'M')
+                  WHEN SUM(dt.subtotal) >= 1000 THEN 
+                    CONCAT(ROUND(SUM(dt.subtotal) / 1000, 1), 'K')
+                  ELSE 
+                    CAST(SUM(dt.subtotal) AS CHAR)
+                END as ingresos_formatted,
+                (SELECT DATE_FORMAT(lunes_fecha, '%d/%m/%Y') FROM lunes_semana) as inicio_semana,
+                (SELECT DATE_FORMAT(domingo_fecha, '%d/%m/%Y') FROM lunes_semana) as fin_semana
+              FROM productos p
+              INNER JOIN detalle_transacciones dt ON p.id = dt.producto_id
+              INNER JOIN transacciones t ON dt.transaccion_id = t.id
+              INNER JOIN puntos_venta pv ON t.punto_venta_id = pv.id
+              CROSS JOIN lunes_semana ls
+              WHERE pv.negocio_id = ?
+                AND t.tipo = 'ingreso'
+                AND p.activo = 1
+                AND DATE(t.fecha) BETWEEN ls.lunes_fecha AND ls.domingo_fecha
+              GROUP BY p.id, p.nombre, p.precio_unitario, p.costo_unitario
+              ORDER BY cantidad_total_vendida DESC, ingresos_generados DESC;`,
+              [fecha, businessId, businessId],
+      );
+
+      return weeklyBestSellersData;
 
     } catch (error) {
       throw new HttpException(
