@@ -50,9 +50,9 @@ export class AnalyticsController {
   getWeekBestSellers(
     @Param('businessId') businessId: number,
     @Req() req,
-    @Query('fecha') fecha: string
+    @Query('fecha') fecha: string,
   ) {
-   if (!fecha) {
+    if (!fecha) {
       throw new HttpException(
         'Debes seleccionar una fecha para hacer la peticion',
         HttpStatus.BAD_REQUEST,
@@ -72,6 +72,32 @@ export class AnalyticsController {
       user.sub,
     );
     //
+  }
 
+  @Get('week/comparison/:businessId')
+  getWeeklyComparison(
+    @Param('businessId') businessId: number,
+    @Req() req,
+    @Query('fecha') fecha: string,
+  ) {
+    if (!fecha) {
+      throw new HttpException(
+        'Debes seleccionar una fecha para hacer la peticion',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!businessId) {
+      throw new HttpException(
+        'Debes seleccionar un negocio para hacer la peticion',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const user = req.user as JwtPayload;
+    return this.analyticsService.getWeeklyComparison(
+      fecha,
+      businessId,
+      user.sub,
+    );
   }
 }

@@ -80,31 +80,10 @@ export class AnalyticsService {
           COALESCE(ipd.total_ingresos_dia, 0) as total_ingresos,
           COALESCE(epd.total_egresos_dia, 0) as total_egresos,
           COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0) as ganancia_neta,
-          COALESCE(ipd.total_transacciones_ingreso, 0) as transacciones_ingreso,
-          COALESCE(epd.total_transacciones_egreso, 0) as transacciones_egreso,
-          COALESCE(pvpd.total_productos_vendidos, 0) as productos_vendidos,
           CASE
             WHEN DATE_ADD(ls.lunes_fecha, INTERVAL dias.dia_numero - 1 DAY) = (SELECT fecha_consulta FROM fecha_input) THEN 'SÍ'
             ELSE 'NO'
-          END as es_fecha_consultada,
-          CASE 
-            WHEN COALESCE(ipd.total_ingresos_dia, 0) >= 1000000 THEN 
-              CONCAT(ROUND(COALESCE(ipd.total_ingresos_dia, 0) / 1000000, 1), 'M')
-            WHEN COALESCE(ipd.total_ingresos_dia, 0) >= 1000 THEN 
-              CONCAT(ROUND(COALESCE(ipd.total_ingresos_dia, 0) / 1000, 1), 'K')
-            ELSE 
-              CAST(COALESCE(ipd.total_ingresos_dia, 0) AS CHAR)
-          END as ingresos_formatted,
-          CASE 
-            WHEN (COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) >= 1000000 THEN 
-              CONCAT(ROUND((COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) / 1000000, 1), 'M')
-            WHEN (COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) >= 1000 THEN 
-              CONCAT(ROUND((COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) / 1000, 1), 'K')
-            WHEN (COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) < 0 THEN 
-              CONCAT('-', CAST(ABS(COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) AS CHAR))
-            ELSE 
-              CAST((COALESCE(ipd.total_ingresos_dia, 0) - COALESCE(epd.total_egresos_dia, 0)) AS CHAR)
-          END as ganancia_formatted
+          END as es_fecha_consultada
         FROM (
           SELECT 1 as dia_numero, 'Lun' as nombre_dia
           UNION ALL SELECT 2, 'Mar'
@@ -217,4 +196,113 @@ export class AnalyticsService {
       if (connection) connection.release();
     }
   }
+
+  async getWeeklyComparison(fecha, businessId, userId) {
+  let connection: PoolConnection | null = null;
+
+  try {
+    connection = await this.pool.getConnection();
+    
+    // Verificar permisos del negocio
+    const [businessRows]: [any[], any] = await connection.query(
+      'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
+      [businessId, userId],
+    );
+
+    if (!businessRows || businessRows.length === 0) {
+      throw new HttpException(
+        'El negocio no existe o no tienes permisos para acceder a él',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const [comparisonData]: [any[], any] = await connection.query(
+      `WITH
+      fecha_input AS (
+        SELECT DATE(?) as fecha_consulta
+      ),
+      semanas AS (
+        SELECT
+          -- Semana actual
+          CASE
+            WHEN WEEKDAY(fecha_consulta) = 0 THEN fecha_consulta
+            ELSE DATE_SUB(fecha_consulta, INTERVAL WEEKDAY(fecha_consulta) DAY)
+          END as lunes_actual,
+          CASE
+            WHEN WEEKDAY(fecha_consulta) = 0 THEN DATE_ADD(fecha_consulta, INTERVAL 6 DAY)
+            ELSE DATE_ADD(DATE_SUB(fecha_consulta, INTERVAL WEEKDAY(fecha_consulta) DAY), INTERVAL 6 DAY)
+          END as domingo_actual,
+          -- Semana anterior
+          CASE
+            WHEN WEEKDAY(fecha_consulta) = 0 THEN DATE_SUB(fecha_consulta, INTERVAL 7 DAY)
+            ELSE DATE_SUB(DATE_SUB(fecha_consulta, INTERVAL WEEKDAY(fecha_consulta) DAY), INTERVAL 7 DAY)
+          END as lunes_anterior,
+          CASE
+            WHEN WEEKDAY(fecha_consulta) = 0 THEN DATE_SUB(fecha_consulta, INTERVAL 1 DAY)
+            ELSE DATE_SUB(DATE_SUB(fecha_consulta, INTERVAL WEEKDAY(fecha_consulta) DAY), INTERVAL 1 DAY)
+          END as domingo_anterior
+        FROM fecha_input
+      ),
+      ingresos_actual AS (
+        SELECT
+          SUM(t.monto_total) as total_ingresos
+        FROM puntos_venta pv
+        INNER JOIN transacciones t ON pv.id = t.punto_venta_id
+        CROSS JOIN semanas s
+        WHERE pv.negocio_id = ?
+          AND t.tipo = 'ingreso'
+          AND DATE(t.fecha) BETWEEN s.lunes_actual AND s.domingo_actual
+      ),
+      ingresos_anterior AS (
+        SELECT
+          SUM(t.monto_total) as total_ingresos
+        FROM puntos_venta pv
+        INNER JOIN transacciones t ON pv.id = t.punto_venta_id
+        CROSS JOIN semanas s
+        WHERE pv.negocio_id = ?
+          AND t.tipo = 'ingreso'
+          AND DATE(t.fecha) BETWEEN s.lunes_anterior AND s.domingo_anterior
+      ),
+      productos_vendidos AS (
+        SELECT
+          SUM(dt.cantidad) as productos_actuales
+        FROM puntos_venta pv
+        INNER JOIN transacciones t ON pv.id = t.punto_venta_id
+        INNER JOIN detalle_transacciones dt ON t.id = dt.transaccion_id
+        CROSS JOIN semanas s
+        WHERE pv.negocio_id = ?
+          AND t.tipo = 'ingreso'
+          AND DATE(t.fecha) BETWEEN s.lunes_actual AND s.domingo_actual
+      )
+      SELECT
+        -- Porcentaje de cambio vs semana anterior
+        CASE 
+          WHEN COALESCE(iant.total_ingresos, 0) = 0 AND COALESCE(iact.total_ingresos, 0) > 0 THEN 100
+          WHEN COALESCE(iant.total_ingresos, 0) = 0 THEN 0
+          ELSE ROUND(((COALESCE(iact.total_ingresos, 0) - COALESCE(iant.total_ingresos, 0)) / COALESCE(iant.total_ingresos, 0)) * 100, 0)
+        END as porcentaje_vs_semana_anterior,
+        
+        -- Total productos vendidos esta semana
+        COALESCE(pv.productos_actuales, 0) as productos_vendidos_semana
+        
+      FROM ingresos_actual iact
+      CROSS JOIN ingresos_anterior iant
+      CROSS JOIN productos_vendidos pv;`,
+      [fecha, businessId, businessId, businessId],
+    );
+
+    return {
+      porcentaje_vs_semana_anterior: comparisonData[0]?.porcentaje_vs_semana_anterior || 0,
+      productos_vendidos_semana: comparisonData[0]?.productos_vendidos_semana || 0
+    };
+
+  } catch (error: any) {
+    throw new HttpException(
+      error.message || 'Error al obtener comparación semanal',
+      error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  } finally {
+    if (connection) connection.release();
+  }
+}
 }
