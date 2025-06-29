@@ -9,26 +9,26 @@ import config from 'src/config';
     {
       provide: "MYSQL",
       useFactory: (configService: ConfigType<typeof config>) => {
-        const { host, port, username, password, database } = 
+        const { host, port, username, password, database } =
           configService.database;
-        
+
         if (!database) {
           throw new Error('Database name is not defined in environment variables');
         }
-        
+
         const pool = mysql.createPool({
           host,
           user: username,
           password,
           database,
           port: port ? parseInt(port) : 3306,
+          connectionLimit: 100, 
           waitForConnections: true,
-          connectionLimit: 20,
-          queueLimit: 0,
+          idleTimeout: 300000, 
           namedPlaceholders: true,
-          connectTimeout: 2000,
+          multipleStatements: false, 
         });
-        
+
         return pool;
       },
       inject: [config.KEY],
@@ -36,27 +36,27 @@ import config from 'src/config';
     {
       provide: "MYSQL_CLIENTS",
       useFactory: (configService: ConfigType<typeof config>) => {
-        const { host, port, username, password, database } = 
+        const { host, port, username, password, database } =
           configService.databaseClient;
-        
-        
+
+
         if (!database) {
           throw new Error('Clients database name is not defined in environment variables');
         }
-        
+
         const pool = mysql.createPool({
           host,
           user: username,
           password,
           database,
           port: port ? parseInt(port) : 3306,
+          connectionLimit: 100, 
           waitForConnections: true,
-          connectionLimit: 10,
-          queueLimit: 0,
+          idleTimeout: 300000, 
           namedPlaceholders: true,
-          connectTimeout: 2000,
+          multipleStatements: false, 
         });
-        
+
         return pool;
       },
       inject: [config.KEY],
@@ -64,4 +64,4 @@ import config from 'src/config';
   ],
   exports: ["MYSQL", "MYSQL_CLIENTS"]
 })
-export class DbModule {}
+export class DbModule { }
