@@ -1,7 +1,5 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { Pool, PoolConnection } from 'mysql2/promise';
-import { ConfigVerificationResponseDto } from './dto/config-verification.dto';
-import { QuickConfirmationDto } from './dto/quick-confirmation.dto';
 import { createFixedCost } from './dto/createFixedCost.dto';
 import { UpdateFixedCostDto } from './dto/updateFixedCost.dto';
 
@@ -646,7 +644,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
     try {
       connection = await this.pool.getConnection();
 
-      // Verificar que el negocio existe y pertenece al usuario
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
         [businessId, userId],
@@ -659,77 +656,127 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
+      // Validar si el usuario tiene configuración de costos fijos
+      const [configCostosRows]: [any[], any] = await connection.query(
+        `SELECT ccf.id 
+       FROM configuracion_costos_fijos ccf 
+       WHERE ccf.negocio_id = ? AND ccf.activo = 1`,
+        [businessId],
+      );
+
+      console.log(configCostosRows);
+
+      if (!configCostosRows || configCostosRows.length === 0) {
+        throw new HttpException(
+          'No tienes costos fijos configurados para este negocio. Por favor, configura tus costos fijos antes de calcular el punto de equilibrio.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Validar si existen datos históricos de costos fijos para el mes/año especificado
+      const [historicoCostosRows]: [any[], any] = await connection.query(
+        `SELECT hcfm.id, hcfm.monto 
+       FROM historico_costos_fijos_mensuales hcfm 
+       WHERE hcfm.negocio_id = ? AND hcfm.año = ? AND hcfm.mes = ?`,
+        [businessId, año, mes],
+      );
+
+      if (!historicoCostosRows || historicoCostosRows.length === 0) {
+        throw new HttpException(
+          `No se encontraron datos históricos de costos fijos para ${mes}/${año}. Por favor, asegúrate de tener los costos fijos registrados para este período.`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+
       const [balancePointData]: [any[], any] = await connection.query(
         `
-        WITH costos_fijos_mes AS (
-            SELECT
-                hcfm.negocio_id,
-                hcfm.monto AS total_costos_fijos
-            FROM historico_costos_fijos_mensuales hcfm
-            WHERE hcfm.negocio_id = ?
-                AND hcfm.año = ?
-                AND hcfm.mes = ?
-        ),
-        margen_promedio AS (
-            SELECT
-                p.negocio_id,
-                AVG(p.precio_unitario - p.costo_unitario) AS ganancia_promedio_unitaria,
-                AVG(
-                    CASE
-                        WHEN p.precio_unitario > 0
-                        THEN ((p.precio_unitario - p.costo_unitario) / p.precio_unitario) * 100
-                        ELSE 0
-                    END
-                ) AS margen_promedio_porcentaje
-            FROM productos p
-            WHERE p.negocio_id = ?
-                AND p.activo = 1
-                AND p.precio_unitario > 0
-                AND p.costo_unitario > 0
-        ),
-        progreso_punto_equilibrio AS (
-            SELECT
-                pv.negocio_id,
-                SUM(dt.cantidad) AS cantidad_vendida,
-                SUM(dt.subtotal) AS total_vendido
-            FROM transacciones t
-            INNER JOIN detalle_transacciones dt ON (t.id = dt.transaccion_id)
-            INNER JOIN puntos_venta pv ON (t.punto_venta_id = pv.id)  -- JOIN agregado
-            WHERE t.tipo = 'ingreso'
-                AND pv.negocio_id = ?  -- Filtro por negocio a través de puntos_venta
-                AND YEAR(t.fecha_creacion) = ?
-                AND MONTH(t.fecha_creacion) = ?
-                AND dt.producto_id IS NOT NULL
-        )
-        SELECT
-            cf.total_costos_fijos,
-            mp.ganancia_promedio_unitaria,
-            mp.margen_promedio_porcentaje,
-            CASE
-                WHEN mp.ganancia_promedio_unitaria > 0
-                THEN CEIL(cf.total_costos_fijos / mp.ganancia_promedio_unitaria)
-                ELSE 0
-            END AS unidades_punto_equilibrio,
-            CASE
-                WHEN mp.margen_promedio_porcentaje > 0
-                THEN cf.total_costos_fijos / (mp.margen_promedio_porcentaje / 100)
-                ELSE 0
-            END AS ventas_punto_equilibrio_pesos,
-            pp.total_vendido,
-            pp.cantidad_vendida
-        FROM costos_fijos_mes cf
-        CROSS JOIN margen_promedio mp
-        CROSS JOIN progreso_punto_equilibrio pp
-        WHERE cf.negocio_id = mp.negocio_id
-            AND cf.negocio_id = pp.negocio_id;
-    `,
+      WITH costos_fijos_mes AS (
+          SELECT
+              hcfm.negocio_id,
+              hcfm.monto AS total_costos_fijos
+          FROM historico_costos_fijos_mensuales hcfm
+          WHERE hcfm.negocio_id = ?
+              AND hcfm.año = ?
+              AND hcfm.mes = ?
+      ),
+      margen_promedio AS (
+          SELECT
+              p.negocio_id,
+              AVG(p.precio_unitario - p.costo_unitario) AS ganancia_promedio_unitaria,
+              AVG(
+                  CASE
+                      WHEN p.precio_unitario > 0
+                      THEN ((p.precio_unitario - p.costo_unitario) / p.precio_unitario) * 100
+                      ELSE 0
+                  END
+              ) AS margen_promedio_porcentaje
+          FROM productos p
+          WHERE p.negocio_id = ?
+              AND p.activo = 1
+              AND p.precio_unitario > 0
+              AND p.costo_unitario > 0
+      ),
+      progreso_punto_equilibrio AS (
+          SELECT
+              pv.negocio_id,
+              SUM(dt.cantidad) AS cantidad_vendida,
+              SUM(dt.subtotal) AS total_vendido
+          FROM transacciones t
+          INNER JOIN detalle_transacciones dt ON (t.id = dt.transaccion_id)
+          INNER JOIN puntos_venta pv ON (t.punto_venta_id = pv.id)
+          WHERE t.tipo = 'ingreso'
+              AND pv.negocio_id = ?
+              AND YEAR(t.fecha) = ?
+              AND MONTH(t.fecha) = ?
+              AND dt.producto_id IS NOT NULL
+      )
+      SELECT
+          cf.total_costos_fijos,
+          mp.ganancia_promedio_unitaria,
+          mp.margen_promedio_porcentaje,
+          CASE
+              WHEN mp.ganancia_promedio_unitaria > 0
+              THEN CEIL(cf.total_costos_fijos / mp.ganancia_promedio_unitaria)
+              ELSE 0
+          END AS unidades_punto_equilibrio,
+          CASE
+              WHEN mp.margen_promedio_porcentaje > 0
+              THEN cf.total_costos_fijos / (mp.margen_promedio_porcentaje / 100)
+              ELSE 0
+          END AS ventas_punto_equilibrio_pesos,
+          pp.total_vendido,
+          pp.cantidad_vendida,
+          -- Calcular progreso como porcentaje
+          CASE
+              WHEN mp.ganancia_promedio_unitaria > 0 AND cf.total_costos_fijos > 0
+              THEN ROUND(
+                  (pp.cantidad_vendida / CEIL(cf.total_costos_fijos / mp.ganancia_promedio_unitaria)) * 100,
+                  2
+              )
+              ELSE 0
+          END AS progreso_unidades_porcentaje,
+          CASE
+              WHEN mp.margen_promedio_porcentaje > 0 AND cf.total_costos_fijos > 0
+              THEN ROUND(
+                  (pp.total_vendido / (cf.total_costos_fijos / (mp.margen_promedio_porcentaje / 100))) * 100,
+                  2
+              )
+              ELSE 0
+          END AS progreso_ventas_porcentaje
+      FROM costos_fijos_mes cf
+      CROSS JOIN margen_promedio mp
+      CROSS JOIN progreso_punto_equilibrio pp
+      WHERE cf.negocio_id = mp.negocio_id
+          AND cf.negocio_id = pp.negocio_id;
+      `,
         [businessId, año, mes, businessId, businessId, año, mes],
       );
-      return balancePointData;
 
+      return balancePointData;
     } catch (error) {
       throw new HttpException(
-        error.message || 'Error al verificar la configuración',
+        error.message || 'Error al calcular el punto de equilibrio',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {

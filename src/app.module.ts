@@ -12,6 +12,7 @@ import { ProductsModule } from './products/products.module';
 import { FinancialAnalysisModule } from './financial-analysis/financial-analysis.module';
 import config from './config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ProductsModule,
     FinancialAnalysisModule,
     ScheduleModule.forRoot(),
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
