@@ -8,7 +8,7 @@ export class FinancialAnalysisService {
   constructor(
     @Inject('MYSQL') private pool: Pool,
     @Inject('MYSQL_CLIENTS') private poolClient: Pool,
-  ) {}
+  ) { }
 
   async getSummaryDay(userId, businessId, fecha) {
     let connection: PoolConnection | null = null;
@@ -638,7 +638,7 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
     }
   }
 
-  async getBalancePoint(businessId, año, mes, userId) {
+  async getBalancePoint(businessId, año, mes, userId, autoGenerateCosts = false) {
     let connection: PoolConnection | null = null;
 
     try {
@@ -668,8 +668,8 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
 
       if (!configCostosRows || configCostosRows.length === 0) {
         throw new HttpException(
-          'No tienes costos fijos configurados para este negocio. Por favor, configura tus costos fijos antes de calcular el punto de equilibrio.',
-          HttpStatus.BAD_REQUEST,
+          'MISSING_FIXED_COSTS_CONFIG',
+          HttpStatus.PRECONDITION_REQUIRED,
         );
       }
 
@@ -683,8 +683,8 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
 
       if (!historicoCostosRows || historicoCostosRows.length === 0) {
         throw new HttpException(
-          `No se encontraron datos históricos de costos fijos para ${mes}/${año}. Por favor, asegúrate de tener los costos fijos registrados para este período.`,
-          HttpStatus.BAD_REQUEST,
+          'MISSING_MONTHLY_COSTS',
+          HttpStatus.PRECONDITION_REQUIRED,
         );
       }
 

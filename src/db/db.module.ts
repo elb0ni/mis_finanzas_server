@@ -22,11 +22,11 @@ import config from 'src/config';
           password,
           database,
           port: port ? parseInt(port) : 3306,
-          connectionLimit: 100, 
+          connectionLimit: 100,
           waitForConnections: true,
-          idleTimeout: 300000, 
+          connectTimeout: 2000,
           namedPlaceholders: true,
-          multipleStatements: false, 
+          multipleStatements: false,
         });
 
         return pool;
@@ -50,11 +50,11 @@ import config from 'src/config';
           password,
           database,
           port: port ? parseInt(port) : 3306,
-          connectionLimit: 100, 
+          connectionLimit: 100,
           waitForConnections: true,
-          idleTimeout: 300000, 
+          connectTimeout: 2000,
           namedPlaceholders: true,
-          multipleStatements: false, 
+          multipleStatements: false,
         });
 
         return pool;
