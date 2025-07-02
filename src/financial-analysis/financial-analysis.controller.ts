@@ -17,13 +17,15 @@ import { FinancialAnalysisService } from './financial-analysis.service';
 import { JwtPayload } from 'src/auth/models/token.model';
 import { createFixedCost } from './dto/createFixedCost.dto';
 import { UpdateFixedCostDto } from './dto/updateFixedCost.dto';
+import { ToolsService } from 'src/tools/tools.service';
 
 @Controller('financial-analysis')
 @UseGuards(JwtauthGuard)
 export class FinancialAnalysisController {
   constructor(
     private readonly financialAnalysisService: FinancialAnalysisService,
-  ) { }
+    private readonly toolsService: ToolsService,
+  ) {}
 
   @Get('summaryDay/:businessId')
   async getSummaryDay(
@@ -31,7 +33,6 @@ export class FinancialAnalysisController {
     @Param('businessId') businessId: number,
     @Query('fecha') fecha: string,
   ) {
-
     const user = req.user as JwtPayload;
 
     return this.financialAnalysisService.getSummaryDay(
@@ -64,7 +65,7 @@ export class FinancialAnalysisController {
     @Param('businessId') businessId: number,
     @Query('año') año: string,
     @Query('mes') mes: string,
-    @Query('autoGenerate') autoGenerate: string
+    @Query('autoGenerate') autoGenerate: string,
   ) {
     try {
       const user = req.user as JwtPayload;
@@ -75,12 +76,12 @@ export class FinancialAnalysisController {
         año,
         mes,
         user.sub,
-        autoGenerateCosts
+        autoGenerateCosts,
       );
 
       return {
         success: true,
-        data: result
+        data: result,
       };
     } catch (error) {
       if (error.message === 'MISSING_FIXED_COSTS_CONFIG') {
@@ -89,9 +90,9 @@ export class FinancialAnalysisController {
             success: false,
             error: 'MISSING_FIXED_COSTS_CONFIG',
             message: 'Se requiere configuración de costos fijos',
-            action: 'SHOW_GENERATION_MODAL'
+            action: 'SHOW_GENERATION_MODAL',
           },
-          HttpStatus.PRECONDITION_REQUIRED 
+          HttpStatus.PRECONDITION_REQUIRED,
         );
       }
 
@@ -101,9 +102,9 @@ export class FinancialAnalysisController {
             success: false,
             error: 'MISSING_MONTHLY_COSTS',
             message: 'Se requiere generar costos mensuales',
-            action: 'SHOW_GENERATION_MODAL'
+            action: 'SHOW_GENERATION_MODAL',
           },
-          HttpStatus.PRECONDITION_REQUIRED 
+          HttpStatus.PRECONDITION_REQUIRED,
         );
       }
 
@@ -111,9 +112,9 @@ export class FinancialAnalysisController {
         {
           success: false,
           error: 'BALANCE_POINT_ERROR',
-          message: error.message || 'Error al calcular el punto de equilibrio'
+          message: error.message || 'Error al calcular el punto de equilibrio',
         },
-        error.status || HttpStatus.INTERNAL_SERVER_ERROR
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -174,5 +175,24 @@ export class FinancialAnalysisController {
   @Get('prueba')
   async prueba() {
     return this.financialAnalysisService.prueba();
+  }
+
+  @Post('fixedcostshis/:negocioId')
+  async generateFixedCosts(
+    @Param('negocioId') negocioId: number,
+    @Query('año') año?: number,
+    @Query('mes') mes?: number,
+  ) {
+    return this.toolsService.generateFixedCosts(negocioId, año, mes);
+  }
+  
+  @Get('fixedcostshis/:negocioId')
+  async getGenerateFixedCosts(
+    @Param('negocioId') negocioId: number,
+    @Req() req,
+  ) {
+    const user = req.user as JwtPayload;
+
+    return this.toolsService.getFixedCostsHistory(negocioId, user.sub);
   }
 }

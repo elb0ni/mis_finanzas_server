@@ -85,6 +85,40 @@ export class ToolsService {
     };
   }
 
+  async getFixedCostsHistory(businessId, userId) {
+    let connection: PoolConnection | null = null;
+
+    try {
+      connection = await this.pool.getConnection();
+      const [businessRows]: [any[], any] = await connection.query(
+        'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
+        [businessId, userId],
+      );
+
+      if (!businessRows || businessRows.length === 0) {
+        throw new HttpException(
+          'El negocio no existe o no tienes permisos para acceder a él',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const [dailyPerformanceData]: [any[], any] = await connection.query(
+        `select sum(ccf.monto_mensual ) as total_costos_mes from configuracion_costos_fijos ccf where ccf.negocio_id = ?`,
+        [businessId],
+      );
+
+      return dailyPerformanceData;
+
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Error al obtener el rendimiento diario',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+
   async generarCostosFijosPorNegocio(
     negocioId: number,
     año: number,

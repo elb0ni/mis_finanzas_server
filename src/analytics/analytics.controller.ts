@@ -73,7 +73,6 @@ export class AnalyticsController {
       );
     }
 
-    // Validar formato de fecha YYYY-MM-DD
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(fecha)) {
       throw new HttpException(
@@ -90,7 +89,6 @@ export class AnalyticsController {
     );
   }
 
-  //ANALISIS POR SEMAN
   @Get('week/comparison/:businessId')
   getWeeklyComparison(
     @Param('businessId') businessId: number,
@@ -174,7 +172,6 @@ export class AnalyticsController {
 
 
   }
-  //ANALISIS POR ME
 
   @Get('month/performance/:businessId')
   getMonthPerformance(
@@ -229,7 +226,6 @@ export class AnalyticsController {
       user.sub,
     );
 
-    //
   }
 
 }
