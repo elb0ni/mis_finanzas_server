@@ -36,12 +36,5 @@ export class ToolsController {
     }
   }
 
-  @Post('fixedcostshis/:negocioId')
-  async generarCostosFijosManual(
-    @Param('negocioId') negocioId: number,
-    @Query('año') año?: number,
-    @Query('mes') mes?: number,
-  ) {
-    return this.toolsService.generateFixedCosts(negocioId, año, mes);
-  }
+
 }

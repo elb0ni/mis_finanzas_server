@@ -4,6 +4,7 @@ import { ToolsController } from './tools.controller';
 
 @Module({
   providers: [ToolsService],
-  controllers: [ToolsController]
+  controllers: [ToolsController],
+  exports:[ToolsService]
 })
 export class ToolsModule {}

@@ -8,7 +8,7 @@ export class FinancialAnalysisService {
   constructor(
     @Inject('MYSQL') private pool: Pool,
     @Inject('MYSQL_CLIENTS') private poolClient: Pool,
-  ) {}
+  ) { }
 
   async getSummaryDay(userId, businessId, fecha) {
     let connection: PoolConnection | null = null;
@@ -178,7 +178,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         [businessId, businessId, ...fechaParams],
       );
 
-      // Productos más y menos rentables
       const [topProducts] = await connection.query(
         `
       SELECT 
@@ -256,7 +255,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
     try {
       connection = await this.pool.getConnection();
 
-      // Verificar que el negocio existe y pertenece al usuario
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT id FROM negocios WHERE id = ? AND propietario = ?',
         [businessId, userId],
@@ -269,7 +267,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
-      // Obtener los costos fijos
       const [fixedCosts]: [any[], any] = await connection.query(
         `SELECT
          ccf.id,
@@ -315,7 +312,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
       connection = await this.pool.getConnection();
       await connection.beginTransaction();
 
-      // Verificar que el negocio existe y pertenece al usuario
       const [businessRows]: [any[], any] = await connection.query(
         'SELECT id, nombre FROM negocios WHERE id = ? AND propietario = ?',
         [newFixedCost.negocio_id, userId],
@@ -328,7 +324,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
-      // Verificar que la categoría de egreso existe
       const [categoryRows]: [any[], any] = await connection.query(
         'SELECT id, nombre FROM categorias_egresos WHERE id = ?',
         [newFixedCost.categoria_egreso_id],
@@ -341,20 +336,18 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
-      // Insertar la nueva configuración de costo fijo
       const [insertResult]: [any, any] = await connection.query(
         `INSERT INTO configuracion_costos_fijos 
        (negocio_id, categoria_egreso_id, descripcion, monto_mensual)
        VALUES (?, ?, ?, ?)`,
         [
-          newFixedCost.negocio_id, // Usar businessId del parámetro para mayor seguridad
+          newFixedCost.negocio_id, 
           newFixedCost.categoria_egreso_id,
           newFixedCost.descripcion || null,
           newFixedCost.monto_mensual,
         ],
       );
 
-      // Obtener el registro creado para retornarlo
       const [createdRecord]: [any[], any] = await connection.query(
         `SELECT 
          ccf.id,
@@ -386,12 +379,10 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         await connection.rollback();
       }
 
-      // Si es un error conocido, re-lanzarlo
       if (error instanceof HttpException) {
         throw error;
       }
 
-      // Error genérico
       throw new HttpException(
         `Error al crear la configuración de costo fijo: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -410,7 +401,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
       connection = await this.pool.getConnection();
       await connection.beginTransaction();
 
-      // Verificar que la configuración existe y pertenece al usuario
       const [existingRows]: [any[], any] = await connection.query(
         `SELECT ccf.id, ccf.negocio_id, n.nombre as negocio_nombre
        FROM configuracion_costos_fijos ccf
@@ -426,7 +416,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
-      // Eliminar la configuración de costo fijo
       const [deleteResult]: [any, any] = await connection.query(
         'DELETE FROM configuracion_costos_fijos WHERE id = ?',
         [fixedCostId],
@@ -481,7 +470,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
       connection = await this.pool.getConnection();
       await connection.beginTransaction();
 
-      // Verificar que la configuración existe y pertenece al usuario
       const [fixedCostRows]: [any[], any] = await connection.query(
         `SELECT ccf.*, n.propietario 
        FROM configuracion_costos_fijos ccf 
@@ -499,7 +487,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
 
       const fixedCost = fixedCostRows[0];
 
-      // Verificar que el negocio de la configuración pertenece al usuario
       if (fixedCost.propietario !== userId) {
         throw new HttpException(
           'No tienes permisos para actualizar esta configuración de costo fijo',
@@ -507,7 +494,6 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         );
       }
 
-      // Verificar la categoría de egreso si está siendo actualizada
       if (updateFixedCostDto.categoria_egreso_id) {
         const [categoryRows]: [any[], any] = await connection.query(
           'SELECT id FROM categorias_egresos WHERE id = ?',
@@ -522,23 +508,19 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         }
       }
 
-      // Construir la query de actualización dinámicamente
       const updateFields: any = [];
       const updateValues: any = [];
 
-      // Campos permitidos para actualizar
       const fieldsToUpdate = [
         'categoria_egreso_id',
         'monto_mensual',
         'descripcion',
       ];
 
-      // Construir la lista de campos a actualizar
       fieldsToUpdate.forEach((field) => {
         if (updateFixedCostDto[field] !== undefined) {
           updateFields.push(`${field} = ?`);
 
-          // Para el campo descripción que puede ser null
           if (field === 'descripcion') {
             updateValues.push(updateFixedCostDto[field] || null);
           } else {
@@ -547,15 +529,11 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         }
       });
 
-      // Añadir timestamp de actualización
       updateFields.push('ultima_actualizacion = CURRENT_TIMESTAMP');
 
-      // Si no hay campos para actualizar, retornar sin cambios
       if (updateFields.length === 1) {
-        // Solo el timestamp
         await connection.commit();
 
-        // Obtener el registro con información completa
         const [currentRecord]: [any[], any] = await connection.query(
           `SELECT 
          ccf.id,
@@ -582,16 +560,13 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
         };
       }
 
-      // Añadir el ID de la configuración a los valores
       updateValues.push(fixedCostId);
 
-      // Ejecutar la query de actualización
       await connection.query(
         `UPDATE configuracion_costos_fijos SET ${updateFields.join(', ')} WHERE id = ?`,
         updateValues,
       );
 
-      // Obtener el registro actualizado con información completa
       const [updatedRecord]: [any[], any] = await connection.query(
         `SELECT 
        ccf.id,
@@ -638,7 +613,7 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
     }
   }
 
-  async getBalancePoint(businessId, año, mes, userId) {
+  async getBalancePoint(businessId, año, mes, userId, autoGenerateCosts = false) {
     let connection: PoolConnection | null = null;
 
     try {
@@ -668,8 +643,8 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
 
       if (!configCostosRows || configCostosRows.length === 0) {
         throw new HttpException(
-          'No tienes costos fijos configurados para este negocio. Por favor, configura tus costos fijos antes de calcular el punto de equilibrio.',
-          HttpStatus.BAD_REQUEST,
+          'MISSING_FIXED_COSTS_CONFIG',
+          HttpStatus.PRECONDITION_REQUIRED,
         );
       }
 
@@ -683,8 +658,8 @@ LEFT JOIN ventas_agregadas va ON pb.id = va.id;
 
       if (!historicoCostosRows || historicoCostosRows.length === 0) {
         throw new HttpException(
-          `No se encontraron datos históricos de costos fijos para ${mes}/${año}. Por favor, asegúrate de tener los costos fijos registrados para este período.`,
-          HttpStatus.BAD_REQUEST,
+          'MISSING_MONTHLY_COSTS',
+          HttpStatus.PRECONDITION_REQUIRED,
         );
       }
 
