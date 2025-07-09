@@ -22,13 +22,34 @@ import config from 'src/config';
           password,
           database,
           port: port ? parseInt(port) : 3306,
-          connectionLimit: 100,
-          waitForConnections: true,
-          connectTimeout: 2000,
+            connectionLimit: 10,        // Máximo 10 conexiones simultáneas
+          waitForConnections: true,   // Esperar conexiones disponibles
+          queueLimit: 0,             // Sin límite en la cola
+          maxIdle: 5,                // Máximo 5 conexiones idle
+          idleTimeout: 300000,       // 5 minutos antes de cerrar conexión idle
+          
+          
+          connectTimeout: 60000,    
+          
+      
+          enableKeepAlive: true,     
+          keepAliveInitialDelay: 0,  
+          
+         
           namedPlaceholders: true,
           multipleStatements: false,
+          charset: 'utf8mb4',
+          
+      
         });
 
+      
+        pool.on('connection', (connection) => {
+          console.log('Nueva conexión MySQL establecida:', connection.threadId);
+        });
+
+  
+   
         return pool;
       },
       inject: [config.KEY],

@@ -172,11 +172,7 @@ export class FinancialAnalysisController {
     );
   }
 
-  @Get('prueba')
-  async prueba() {
-    return this.financialAnalysisService.prueba();
-  }
-
+  //historial de costos
   @Post('fixedcostshis/:negocioId')
   async generateFixedCosts(
     @Param('negocioId') negocioId: number,
@@ -185,7 +181,7 @@ export class FinancialAnalysisController {
   ) {
     return this.toolsService.generateFixedCosts(negocioId, año, mes);
   }
-  
+
   @Get('fixedcostshis/:negocioId')
   async getGenerateFixedCosts(
     @Param('negocioId') negocioId: number,
@@ -195,4 +191,5 @@ export class FinancialAnalysisController {
 
     return this.toolsService.getFixedCostsHistory(negocioId, user.sub);
   }
+
 }

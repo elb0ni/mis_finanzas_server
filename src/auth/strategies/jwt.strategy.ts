@@ -39,12 +39,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       const session = sessions[0];
 
-      // Verificar si la sesión ha expirado
+    
       const expiresAt = new Date(session.expires_at);
       const now = new Date();
 
       if (expiresAt < now) {
-        // La sesión ha expirado, marcarla como inactiva en la base de dato
         await this.pool.query(
           'UPDATE sessions SET is_active = 0 WHERE session_id = ?',
           [payload.sessionId],
@@ -59,8 +58,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-
-      // Para cualquier otro error, lanzar un UnauthorizedException genérico
+      console.log(error);
+      
       throw new UnauthorizedException('Error al validar la sesión');
     }
   }
